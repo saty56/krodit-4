@@ -94,7 +94,6 @@ export const subscriptions = pgTable("subscriptions", {
   currency: text("currency").default("USD").notNull(),
   billingCycle: billingCycleEnum("billing_cycle").default("monthly").notNull(),
   nextBillingDate: timestamp("next_billing_date"),
-  serviceUrl: text("service_url"),
   isActive: boolean("is_active").default(true).notNull(),
   isAutoRenew: boolean("is_auto_renew").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

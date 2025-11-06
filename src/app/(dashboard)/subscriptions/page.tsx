@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { ErrorBoundary } from "react-error-boundary";
-import { SubscriptionsListHeader } from "@/modules/subscriptions/ui/components/list-header";
+import { SubscriptionsListHeader } from "@/modules/subscriptions/ui/components/subscriptions-list-header";
 
 import { 
   SubscriptionsView, 
@@ -26,7 +26,7 @@ const Page = async () => {
 
 
   const queryClient = getQueryClient();
-  void queryClient.prefetchQuery(trpc.subscriptions.list.queryOptions());
+  void queryClient.prefetchQuery(trpc.subscriptions.listMany.queryOptions({}));
 
   return (
     <>
