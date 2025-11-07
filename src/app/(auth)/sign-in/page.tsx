@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { FaGoogle, FaGithub } from "react-icons/fa";
 import RedirectIfAuth from "@/modules/dashboard/ui/components/auth/redirect-if-auth";
+import { AuthLoadingOverlay } from "@/components/auth-loading-overlay";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { useForm } from "react-hook-form";
@@ -83,37 +84,9 @@ export default function SignInPage() {
       : {};
   const errorStyle = { color: "#be123c", fontSize: 13, marginBottom: 10, display: 'block' };
 
-  // Show loading overlay during OAuth callback
+  // Show loading overlay during OAuth callback to prevent page blink
   if (isOAuthCallback) {
-    return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        width: '100%',
-        background: 'var(--background, #fff)',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 9999
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            border: '4px solid #f3f3f3',
-            borderTop: '4px solid #3498db',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 16px'
-          }} />
-          <p style={{ color: '#666', fontSize: '14px' }}>Completing sign in...</p>
-        </div>
-      </div>
-    );
+    return <AuthLoadingOverlay message="Completing sign in..." fullScreen />;
   }
 
   return (
@@ -206,32 +179,9 @@ export default function SignInPage() {
                   <FaGithub />
                   </button>
               </div>
+              {/* Show loading overlay when social button is clicked */}
               {isSocialLoading && (
-                <div style={{
-                  position: 'fixed',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  background: 'rgba(255, 255, 255, 0.95)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  zIndex: 9999
-                }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      border: '4px solid #f3f3f3',
-                      borderTop: '4px solid #3498db',
-                      borderRadius: '50%',
-                      animation: 'spin 1s linear infinite',
-                      margin: '0 auto 16px'
-                    }} />
-                    <p style={{ color: '#666', fontSize: '14px' }}>Redirecting to provider...</p>
-                  </div>
-                </div>
+                <AuthLoadingOverlay message="Redirecting to provider..." />
               )}
               <div className="card-footer">
                 <span>New here?</span>

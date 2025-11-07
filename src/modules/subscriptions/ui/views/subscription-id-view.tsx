@@ -16,26 +16,39 @@ import { getLogoUrlViaApi } from "@/lib/logo-api";
 import { UpdateSubscriptionDialog } from "../components/update-subscription-dialog";
 import { useConfirm } from "@/hooks/use-confirm";
 
+/**
+ * Component that displays a logo for a subscription service by name
+ * Fetches logo from API and handles loading/error states
+ */
 function LogoByName({ name, className }: { name: string; className?: string }) {
     const [src, setSrc] = React.useState<string>("");
+    
     React.useEffect(() => {
         let mounted = true;
         const q = String(name || "").trim();
-        if (!q) { setSrc(""); return; }
+        
+        if (!q) { 
+            setSrc(""); 
+            return; 
+        }
+        
         getLogoUrlViaApi(q).then((url) => {
             if (!mounted) return;
             setSrc(url || "");
         });
-        return () => { mounted = false; };
+        
+        return () => { 
+            mounted = false; 
+        };
     }, [name]);
 
-    if (!name) return (
-        <div className={className || "size-10"} />
-    );
+    if (!name) {
+        return <div className={className || "size-10"} />;
+    }
 
-    if (!src) return (
-        <div className={(className || "size-10") + " rounded bg-muted"} />
-    );
+    if (!src) {
+        return <div className={(className || "size-10") + " rounded bg-muted"} />;
+    }
 
     return (
         // eslint-disable-next-line @next/next/no-img-element
@@ -43,15 +56,49 @@ function LogoByName({ name, className }: { name: string; className?: string }) {
             src={src}
             alt={name}
             className={(className || "size-10") + " rounded"}
-            onError={(e) => { (e.currentTarget as HTMLImageElement).onerror = null; }}
+            onError={(e) => { 
+                (e.currentTarget as HTMLImageElement).onerror = null; 
+            }}
         />
     );
 }
 
+/**
+ * Helper function to format currency amount
+ */
+function formatCurrency(amount: any, currency: any = "USD"): string {
+    const raw = amount ?? "0.00";
+    try {
+        const n = parseFloat(String(raw));
+        return new Intl.NumberFormat(undefined, { 
+            style: "currency", 
+            currency 
+        }).format(isFinite(n) ? n : 0);
+    } catch {
+        return String(raw);
+    }
+}
+
+/**
+ * Helper function to format date for display
+ */
+function formatDate(date: Date | string | undefined): string {
+    if (!date) return "-";
+    const d = typeof date === "string" ? new Date(date) : date;
+    return isNaN(d.getTime()) ? "-" : d.toLocaleDateString();
+}
+
+/**
+ * Props for SubscriptionIdView component
+ */
 interface Props {
     subscriptionId: string;
-}; 
+}
 
+/**
+ * View component for displaying a single subscription's details
+ * Includes edit and delete functionality
+ */
 export const SubscriptionIdView = ({ subscriptionId }: Props) => {
     const trpc = useTRPC();
     const router = useRouter();
@@ -59,12 +106,18 @@ export const SubscriptionIdView = ({ subscriptionId }: Props) => {
 
     const [updateSubscriptionDialogOpen, setUpdateSubscriptionDialogOpen] = useState(false);
 
-    const { data } = useSuspenseQuery(trpc.subscriptions.listOne.queryOptions({ id: subscriptionId }));
+    // Fetch subscription data
+    const { data } = useSuspenseQuery(
+        trpc.subscriptions.listOne.queryOptions({ id: subscriptionId })
+    );
 
-     const removeSubscription = useMutation(
+    // Mutation for removing/deleting subscription
+    const removeSubscription = useMutation(
         trpc.subscriptions.remove.mutationOptions({
             onSuccess: async () => {
-                await queryClient.invalidateQueries(trpc.subscriptions.listMany.queryOptions({}));
+                await queryClient.invalidateQueries(
+                    trpc.subscriptions.listMany.queryOptions({})
+                );
                 router.push("/subscriptions");
             },
             onError: (error) => {
@@ -73,11 +126,17 @@ export const SubscriptionIdView = ({ subscriptionId }: Props) => {
         }),
     );
 
-    const [RemoveConfirmation, confirmRemove] = useConfirm("Delete Subscription", "Are you sure you want to delete this subscription?");
+    // Confirmation dialog for delete action
+    const [RemoveConfirmation, confirmRemove] = useConfirm(
+        "Delete Subscription", 
+        "Are you sure you want to delete this subscription?"
+    );
 
+    /**
+     * Handle subscription removal with confirmation
+     */
     const handleRemoveSubscription = async () => {
         const ok = await confirmRemove();
-
         if (!ok) return;
         
         await removeSubscription.mutateAsync({ id: subscriptionId });
@@ -116,27 +175,13 @@ export const SubscriptionIdView = ({ subscriptionId }: Props) => {
                         <div className="flex flex-col">
                             <span className="text-xs text-muted-foreground">Amount</span>
                             <span className="font-medium">
-                                {(() => {
-                                    const raw = (data as any)?.amount ?? "0.00";
-                                    const currency = (data as any)?.currency ?? "USD";
-                                    try {
-                                        const n = parseFloat(String(raw));
-                                        return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(isFinite(n) ? n : 0);
-                                    } catch {
-                                        return String(raw);
-                                    }
-                                })()}
+                                {formatCurrency((data as any)?.amount, (data as any)?.currency)}
                             </span>
                         </div>
                         <div className="flex flex-col">
                             <span className="text-xs text-muted-foreground">Next billing date</span>
                             <span className="font-medium">
-                                {(() => {
-                                    const d = (data as any)?.nextBillingDate as Date | string | undefined;
-                                    if (!d) return "-";
-                                    const date = typeof d === "string" ? new Date(d) : d;
-                                    return isNaN(date.getTime()) ? "-" : date.toLocaleDateString();
-                                })()}
+                                {formatDate((data as any)?.nextBillingDate)}
                             </span>
                         </div>
                         <div className="flex flex-col sm:col-span-1 col-span-1">
