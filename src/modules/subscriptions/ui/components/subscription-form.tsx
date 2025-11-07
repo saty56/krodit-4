@@ -56,11 +56,8 @@ interface SubscriptionFormProps {
                     trpc.subscriptions.listMany.queryOptions({})
                    );
 
-                    if (initialValues?.id) {
-                       await queryClient.invalidateQueries(
-                         trpc.subscriptions.listOne.queryOptions({ id: initialValues.id }),
-                        )
-                    }  
+                     // TODO: Invalidate free tier usage
+
                     onSuccess?.();
                 },
                 onError: (error) => { 
@@ -70,9 +67,31 @@ interface SubscriptionFormProps {
                 },
             }),
         );
+
+        const updateSubscription = useMutation(
+          trpc.subscriptions.update.mutationOptions({
+              onSuccess: async () => {
+                 await queryClient.invalidateQueries(
+                  trpc.subscriptions.listMany.queryOptions({})
+                 );
+
+                  if (initialValues?.id) {
+                     await queryClient.invalidateQueries(
+                       trpc.subscriptions.listOne.queryOptions({ id: initialValues.id }),
+                      )
+                  }  
+                  onSuccess?.();
+              },
+              onError: (error) => { 
+                  toast.error(error.message);
+
+                  // TODO: Check if error code is "FORBIDDEN", redirect to "/upgrade"
+              },
+          }),
+      );
+   
      
-        type FormValues = z.infer<typeof subscriptionsInsertschema>;
-        const form = useForm<FormValues>({
+        const form = useForm<z.infer<typeof subscriptionsInsertschema>>({
             resolver: zodResolver(subscriptionsInsertschema) as any,
             defaultValues: {
                 name: initialValues?.name ?? "",
@@ -115,11 +134,11 @@ interface SubscriptionFormProps {
 		}, [watchedName]);
 
         const isEdit = !!initialValues?.id;
-        const isPending = createSubscription.isPending;
+        const isPending = createSubscription.isPending || updateSubscription.isPending;
 
-        const onSubmit: SubmitHandler<FormValues> = (values) => {
+        const onSubmit: SubmitHandler<z.infer<typeof subscriptionsInsertschema>> = (values) => {
             if (isEdit) {
-                console.log("TODO: updateSubscription");
+                updateSubscription.mutate({ ...values, id: initialValues.id });
             } else {
                 createSubscription.mutate(values);
             }
@@ -128,28 +147,30 @@ interface SubscriptionFormProps {
         return (
             <Form {...(form as any)}>
                 <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-					<div className="border size-16 rounded-md overflow-hidden flex items-center justify-center bg-muted/20">
-						{watchedName ? (
-							logoSrc ? (
-							// eslint-disable-next-line @next/next/no-img-element
-							<img
-									src={logoSrc}
-									alt={watchedName || "Service logo"}
-								className="w-full h-full object-contain"
-								onError={(e)=>{
-									const el = e.currentTarget as HTMLImageElement;
-									const fallbacks = fallbackIconUrls(watchedName, 128);
-									const idx = Number(el.dataset.fbIndex || 0);
-									if (idx < fallbacks.length) {
-										el.dataset.fbIndex = String(idx + 1);
-										el.src = fallbacks[idx];
-									} else {
-										el.onerror = null;
-									}
-								}}
-							/>
-							) : (
-								<div className="w-full h-full animate-pulse bg-muted" />
+				<div className="border size-16 rounded-md overflow-hidden flex items-center justify-center bg-muted/20">
+					{watchedName ? (
+						logoLoading ? (
+							<div className="w-full h-full animate-pulse bg-muted" />
+						) : logoSrc ? (
+						// eslint-disable-next-line @next/next/no-img-element
+						<img
+								src={logoSrc}
+								alt={watchedName || "Service logo"}
+							className="w-full h-full object-contain"
+							onError={(e)=>{
+								const el = e.currentTarget as HTMLImageElement;
+								const fallbacks = fallbackIconUrls(watchedName, 128);
+								const idx = Number(el.dataset.fbIndex || 0);
+								if (idx < fallbacks.length) {
+									el.dataset.fbIndex = String(idx + 1);
+									el.src = fallbacks[idx];
+								} else {
+									el.onerror = null;
+								}
+							}}
+						/>
+						) : (
+							<div className="w-full h-full bg-muted/50" />
 							)
 						) : (
 							<GeneratedAvatar

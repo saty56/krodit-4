@@ -18,19 +18,19 @@ import {
   } from "@/components/ui/drawer";
 
 interface ResponsiveDialogProps {
+  title: string;
+  description?: string;
   children: React.ReactNode;
   open: boolean;
   onOpenChange?: (open: boolean) => void;
-  title: string;
-  description?: string;
 }
 
 export const ResponsiveDialog = ({ 
-  children, 
-  open, 
-  onOpenChange, 
   title, 
   description,
+  children, 
+  open, 
+  onOpenChange,   
 }: ResponsiveDialogProps) => {
   const isMobile = useIsMobile();
 

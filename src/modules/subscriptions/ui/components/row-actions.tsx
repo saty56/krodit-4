@@ -19,7 +19,7 @@ export function RowActions({ item }: RowActionsProps) {
   const update = useMutation(
     trpc.subscriptions.update.mutationOptions({
       onSuccess: async () => {
-        await queryClient.invalidateQueries(trpc.subscriptions.listMany.queryOptions());
+        await queryClient.invalidateQueries(trpc.subscriptions.listMany.queryOptions({}));
         if (item?.id) {
           await queryClient.invalidateQueries(trpc.subscriptions.listOne.queryOptions({ id: item.id }));
         }

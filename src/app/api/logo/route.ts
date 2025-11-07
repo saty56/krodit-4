@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import path from 'path';
-import fs from 'fs/promises';
+import { db } from '@/db';
+import { logos } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 const CLEARBIT_URL = (domain: string, size = 128) => `https://logo.clearbit.com/${domain}?size=${size}`;
 const BRANDFETCH_API = 'https://api.brandfetch.io/v2/brands/';
@@ -31,45 +32,66 @@ function getCandidateDomains(input: string): string[] {
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const query = searchParams.get('q');
-  if (!query) {
-    return NextResponse.json({ error: 'Missing query parameter ?q=' }, { status: 400 });
+  const accept = req.headers.get('accept') || '';
+  const wantsRedirect = searchParams.get('redirect') === '1' || (accept.includes('image') && !accept.includes('json'));
+
+  function respondWithLogo(source: string, logoUrl: string) {
+    if (wantsRedirect) {
+      const absolute = new URL(logoUrl, req.url);
+      return NextResponse.redirect(absolute);
+    }
+    return NextResponse.json({ source, logo: logoUrl });
   }
-  const candidates = getCandidateDomains(query);
-  const preferred = candidates[0];
 
-  // Helper: persist a remote logo URL to /public/brand-logos and return the local URL
-  async function cacheLogoForDomain(domain: string, remoteUrl: string): Promise<string> {
+  async function cacheLogo(query: string, domain: string, logoUrl: string, source: string) {
     try {
-      const safeDomain = domain.toLowerCase().replace(/[^a-z0-9.-]/g, '');
-      const fileName = `${safeDomain}.png`;
-      const publicDir = path.join(process.cwd(), 'public');
-      const logosDir = path.join(publicDir, 'brand-logos');
-      const filePath = path.join(logosDir, fileName);
-
-      // If already cached, serve it
-      try {
-        await fs.access(filePath);
-        return `/brand-logos/${fileName}`;
-      } catch {}
-
-      // Ensure directory exists
-      await fs.mkdir(logosDir, { recursive: true });
-
-      const res = await fetch(remoteUrl);
-      if (!res.ok) throw new Error(`Failed to download logo: ${res.status}`);
-      const arrayBuffer = await res.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      await fs.writeFile(filePath, buffer);
-      return `/brand-logos/${fileName}`;
+      const result = await db.insert(logos).values({
+        query: query.toLowerCase().trim(),
+        domain,
+        logoUrl,
+        source,
+      }).onConflictDoUpdate({
+        target: logos.query,
+        set: { logoUrl, domain, source, updatedAt: new Date() },
+      });
+      console.log('✅ Logo cached successfully in database', { query, domain, source });
+      return result;
     } catch (e) {
-      // In environments with read-only FS (e.g., serverless), fall back to remote URL
-      console.warn('Logo cache write failed, falling back to remote', { error: (e as Error)?.message });
-      return remoteUrl;
+      console.error('❌ Failed to cache logo in database:', {
+        query,
+        domain,
+        source,
+        error: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined,
+      });
+      // Don't throw - allow the API to continue even if caching fails
     }
   }
 
-  // 1. Prefer Brandfetch
-  // 1a. If API key is available, try Brandfetch search to resolve product names to their specific domains
+  if (!query) {
+    return NextResponse.json({ error: 'Missing query parameter ?q=' }, { status: 400 });
+  }
+
+  // 1. Check database cache first
+  try {
+    const [cached] = await db
+      .select()
+      .from(logos)
+      .where(eq(logos.query, query.toLowerCase().trim()))
+      .limit(1);
+    
+    if (cached) {
+      return respondWithLogo(cached.source, cached.logoUrl);
+    }
+  } catch (e) {
+    console.error('Database cache check failed', { query, error: (e as Error)?.message });
+  }
+
+  const candidates = getCandidateDomains(query);
+  const preferred = candidates[0];
+
+  // 2. Prefer Brandfetch
+  // 2a. If API key is available, try Brandfetch search to resolve product names to their specific domains
   if (BRANDFETCH_KEY) {
     try {
       const searchRes = await fetch(`${BRANDFETCH_SEARCH}${encodeURIComponent(query)}`, {
@@ -82,12 +104,12 @@ export async function GET(req: Request) {
         if (topDomain) {
           if (BRANDFETCH_CLIENT_ID) {
             const cdnUrl = `https://cdn.brandfetch.io/${encodeURIComponent(topDomain)}?c=${BRANDFETCH_CLIENT_ID}`;
-            const localUrl = await cacheLogoForDomain(topDomain, cdnUrl);
-            return NextResponse.json({ source: 'brandfetch-cached', logo: localUrl });
+            await cacheLogo(query, topDomain, cdnUrl, 'brandfetch');
+            return respondWithLogo('brandfetch', cdnUrl);
           }
           const imgCdn = `https://img.brandfetch.io/${encodeURIComponent(topDomain)}/icon?size=128`;
-          const localUrl = await cacheLogoForDomain(topDomain, imgCdn);
-          return NextResponse.json({ source: 'brandfetch-cached', logo: localUrl });
+          await cacheLogo(query, topDomain, imgCdn, 'brandfetch');
+          return respondWithLogo('brandfetch', imgCdn);
         }
       } else {
         const text = await searchRes.text().catch(() => '');
@@ -106,8 +128,8 @@ export async function GET(req: Request) {
   // If we have a client id, we can use the Brandfetch CDN directly (hotlink-safe)
   if (BRANDFETCH_CLIENT_ID) {
     const cdnUrl = `https://cdn.brandfetch.io/${encodeURIComponent(preferred)}?c=${BRANDFETCH_CLIENT_ID}`;
-    const localUrl = await cacheLogoForDomain(preferred, cdnUrl);
-    return NextResponse.json({ source: 'brandfetch-cached', logo: localUrl });
+    await cacheLogo(query, preferred, cdnUrl, 'brandfetch');
+    return respondWithLogo('brandfetch', cdnUrl);
   }
 
   // If we have a server API key, try the Brandfetch API
@@ -123,8 +145,8 @@ export async function GET(req: Request) {
         if (brandfetchRes.ok) {
           // Use CDN/img for the specific matched domain
           const imgCdn = `https://img.brandfetch.io/${encodeURIComponent(domain)}/icon?size=128`;
-          const localUrl = await cacheLogoForDomain(domain, imgCdn);
-          return NextResponse.json({ source: 'brandfetch-cached', logo: localUrl });
+          await cacheLogo(query, domain, imgCdn, 'brandfetch');
+          return respondWithLogo('brandfetch', imgCdn);
         } else {
           const text = await brandfetchRes.text().catch(() => '');
           console.warn('Brandfetch API non-OK', {
@@ -140,14 +162,14 @@ export async function GET(req: Request) {
     }
   }
 
-  // 2. Without API key, still try Brandfetch public image CDN as best-effort
+  // 3. Without API key, still try Brandfetch public image CDN as best-effort
   {
     const imgCdn = `https://img.brandfetch.io/${encodeURIComponent(preferred)}/icon?size=128`;
-    const localUrl = await cacheLogoForDomain(preferred, imgCdn);
-    return NextResponse.json({ source: 'brandfetch-cached', logo: localUrl });
+    await cacheLogo(query, preferred, imgCdn, 'brandfetch-public');
+    return respondWithLogo('brandfetch', imgCdn);
   }
 
-  // 3. Final fallback (unreachable in current flow, reserved)
+  // 4. Final fallback (unreachable in current flow, reserved)
   return NextResponse.json({ source: 'fallback', logo: '/default-logo.png' });
 }
 
