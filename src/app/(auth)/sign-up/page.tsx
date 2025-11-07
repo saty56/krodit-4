@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FaGoogle, FaGithub } from "react-icons/fa";
 import RedirectIfAuth from "@/modules/dashboard/ui/components/auth/redirect-if-auth";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { useForm } from "react-hook-form";
 
@@ -18,9 +18,21 @@ interface SignUpFormFields {
 
 export default function Page() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<SignUpFormFields>();
   const [statusMsg, setStatusMsg] = useState("");
   const [msgType, setMsgType] = useState<"error" | "success" | "">("");
+  const [isOAuthCallback, setIsOAuthCallback] = useState(false);
+  const [isSocialLoading, setIsSocialLoading] = useState(false);
+
+  // Check if we're in an OAuth callback
+  useEffect(() => {
+    const code = searchParams.get('code');
+    const state = searchParams.get('state');
+    if (code || state) {
+      setIsOAuthCallback(true);
+    }
+  }, [searchParams]);
 
   const onSubmit = async (data: SignUpFormFields) => {
     setStatusMsg("");
@@ -77,6 +89,39 @@ export default function Page() {
       ? { color: "#b91c1c", background: "#fee2e2", padding: '10px', borderRadius: '8px', marginBottom: '8px', fontWeight: 500, textAlign: 'center' }
       : {};
   const errorStyle = { color: "#be123c", fontSize: 13, marginBottom: 10, display: 'block' };
+
+  // Show loading overlay during OAuth callback
+  if (isOAuthCallback) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        width: '100%',
+        background: 'var(--background, #fff)',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 9999
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            border: '4px solid #f3f3f3',
+            borderTop: '4px solid #3498db',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 16px'
+          }} />
+          <p style={{ color: '#666', fontSize: '14px' }}>Completing sign up...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <RedirectIfAuth>
@@ -189,17 +234,54 @@ export default function Page() {
               <div className="socials">
                 <button
                   type="button" 
-                  onClick={() => authClient.signIn.social({ provider: "google" })}
+                  disabled={isSocialLoading}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsSocialLoading(true);
+                    authClient.signIn.social({ provider: "google" });
+                  }}
                 >
                   <FaGoogle />                
                   </button>
                 <button
                   type="button" 
-                  onClick={() => authClient.signIn.social({ provider: "github" })}
+                  disabled={isSocialLoading}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsSocialLoading(true);
+                    authClient.signIn.social({ provider: "github" });
+                  }}
                 >
                   <FaGithub />
                 </button>
               </div>
+              {isSocialLoading && (
+                <div style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'rgba(255, 255, 255, 0.95)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 9999
+                }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      border: '4px solid #f3f3f3',
+                      borderTop: '4px solid #3498db',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                      margin: '0 auto 16px'
+                    }} />
+                    <p style={{ color: '#666', fontSize: '14px' }}>Redirecting to provider...</p>
+                  </div>
+                </div>
+              )}
               <div className="card-footer">
                 <span>Already have an account?</span>
                 <a href="/sign-in">Sign in</a>
