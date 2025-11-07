@@ -107,11 +107,13 @@ function DialogTitle({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Title>) {
+  const generatedId = React.useId()
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
       className={cn("text-lg leading-none font-semibold", className)}
-      {...props}
+      id={(props as any).id ?? generatedId}
+      {...props} 
     />
   )
 }
@@ -120,10 +122,12 @@ function DialogDescription({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Description>) {
+  const generatedId = React.useId()
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
       className={cn("text-muted-foreground text-sm", className)}
+      id={(props as any).id ?? generatedId}
       {...props}
     />
   )

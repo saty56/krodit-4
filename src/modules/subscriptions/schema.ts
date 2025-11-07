@@ -40,3 +40,9 @@ export const subscriptionsInsertschema = z.object({
   isActive: z.boolean().default(true),
   isAutoRenew: z.boolean().default(true),
 });
+
+export const subscriptionUpdateSchema = subscriptionsInsertschema.extend({
+  id: z.string().min(1, { message: "ID is required" }),
+}); 
+
+// no default export; use named exports above

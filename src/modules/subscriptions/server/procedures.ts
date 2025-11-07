@@ -3,17 +3,64 @@ import { db } from "@/db";
 import { subscriptions } from "@/db/schema";
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 
-import { subscriptionsInsertschema } from "../schema";
+import { subscriptionsInsertschema, subscriptionUpdateSchema} from "../schema";
 import { eq, ilike, and, desc, count } from "drizzle-orm";
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from "@/constants";
+import { TRPCError } from "@trpc/server";
 
 export const subscriptionsRouter = createTRPCRouter({
-  // TODO: change 'listOne' to use 'protectedProcedure' 
-  listOne: protectedProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {
+  update: protectedProcedure
+  .input(subscriptionUpdateSchema)
+  .mutation(async ({ input, ctx }) => {
+
+    const [updatedSubscription] = await db
+      .update(subscriptions)
+      .set({
+        ...input,
+        nextBillingDate: input.nextBillingDate ? new Date(input.nextBillingDate) : null,
+      })
+      .where(
+        and(
+          eq(subscriptions.id, input.id),
+          eq(subscriptions.userId, ctx.auth.user.id)
+        )
+      )
+      .returning();
+    if (!updatedSubscription) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Subscription not found" });
+    }
+
+    return updatedSubscription;
+}),
+  remove: protectedProcedure
+  .input(z.object({ id: z.string() }))
+  .mutation(async ({ input, ctx }) => {
+    const [removedSubscription] = await db
+      .delete(subscriptions)
+      .where(
+        and(
+          eq(subscriptions.id, input.id),
+          eq(subscriptions.userId, ctx.auth.user.id)
+        )
+      )
+      .returning();
+
+    if (!removedSubscription) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Subscription not found" });
+    }
+    return removedSubscription;
+  }),
+  listOne: protectedProcedure
+  .input(z.object({ id: z.string() })).query(async ({ input, ctx }) => {
     const [exitingSubscription] = await db
       .select()
       .from(subscriptions)
-      .where(eq(subscriptions.id, input.id));
+      .where(
+        and(
+          eq(subscriptions.id, input.id), 
+         eq(subscriptions.userId, ctx.auth.user.id)
+        )
+      );
 
     return exitingSubscription;
   }),
