@@ -117,27 +117,5 @@ export const subscriptionsRouter = createTRPCRouter({
         .returning();
 
         return createdSubscription;
-  }),
-  update: protectedProcedure
-  .input(subscriptionsInsertschema.extend({ id: z.string() }))
-  .mutation(async ({ input, ctx }) => {
-    const { id, ...data } = input;
-    const payload = {
-      ...data,
-      nextBillingDate: data.nextBillingDate ? new Date(data.nextBillingDate) : null,
-    };
-
-    const [updatedSubscription] = await db
-      .update(subscriptions)
-      .set(payload)
-      .where(
-        and(
-          eq(subscriptions.id, id),
-          eq(subscriptions.userId, ctx.auth.user.id)
-        )
-      )
-      .returning();
-
-    return updatedSubscription;
   })
 }); 

@@ -43,7 +43,11 @@ export const SubscriptionIdViewHeader = ({
                     </BreadcrumbItem>
                     <BreadcrumbSeparator />
                     <BreadcrumbItem>
-                        <span>{subscriptionName}</span>
+                        <BreadcrumbLink asChild className="font-medium text-xl text-foreground">
+                        <Link href={`/subscriptions/${subscriptionId}`}>
+                        {subscriptionName}
+                        </Link>
+                        </BreadcrumbLink>
                     </BreadcrumbItem>
                 </BreadcrumbList>
             </Breadcrumb>
