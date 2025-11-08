@@ -7,6 +7,7 @@ import { useTRPC } from "@/trpc/client";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { SubscriptionForm } from "./subscription-form";
 import { SubscriptionListOne } from "../../types";
+import { cancelReminderNotifications } from "@/lib/notification-service";
 
 /**
  * Props for RowActions component
@@ -28,6 +29,11 @@ export function RowActions({ item }: RowActionsProps) {
   const update = useMutation(
     trpc.subscriptions.update.mutationOptions({
       onSuccess: async () => {
+        // Cancel notifications when subscription is deactivated
+        if (item?.id) {
+          await cancelReminderNotifications(item.id);
+        }
+
         // Invalidate list to refresh table
         await queryClient.invalidateQueries(trpc.subscriptions.listMany.queryOptions({}));
         

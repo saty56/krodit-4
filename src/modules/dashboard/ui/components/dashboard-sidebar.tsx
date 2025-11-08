@@ -6,7 +6,8 @@ import { usePathname } from "next/navigation";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import {StarIcon, FileTextIcon, CreditCardIcon } from "lucide-react";
-import { Sidebar, 
+import { 
+  Sidebar, 
   SidebarContent, 
   SidebarHeader, 
   SidebarMenu, 
@@ -45,13 +46,13 @@ export const DashboardSidebar = () => {
   return (
     <Sidebar>
       <SidebarHeader className="text-sidebar-accent-foreground">
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/m.png" width={50} height={50} alt="KRODIT" />
-            <p className="text-2xl font-bold">KRODIT</p>
+          <Link href="/" className="flex items-center gap-2 px-2 pt-2">
+            <Image src="/file.svg" width={46} height={46} alt="KRODIT" />
+            <p className="text-2xl font-semibold">KRODIT</p>
           </Link>
           </SidebarHeader>
-          <div className="px-2 py-1">
-          <Separator className="opacity-100 text-[#878787]" />
+          <div className="px-2 py-2">
+          <Separator className="opacity-20 bg-white/80" />
         </div>
         <SidebarContent>
   <SidebarGroup>
@@ -62,13 +63,16 @@ export const DashboardSidebar = () => {
             <SidebarMenuButton
               asChild
               className={cn(
-                "h-10 hover:bg-sidebar-accent border border-transparent hover:border-sidebar-border",
-                pathname === item.href && "bg-sidebar-accent border-sidebar-border"
-              )}
+                "h-10 hover:bg-linear-to-r/oklch border border-transparent hover:border-white/10 from-sidebar-accent from-5% via-30% via-sidebar/50 to-sidebar/50", 
+              
+              pathname === item.href && "bg-linear-to-r/oklch border-white/10")}
               isActive={pathname === item.href}
             >
-              <Link href={item.href} className="flex items-center gap-2">
-                <item.icon/>
+              <Link href={item.href} className={cn(
+                "flex items-center gap-2 text-white/90",
+                pathname === item.href && "text-white font-semibold"
+              )}>
+                <item.icon className="size-5"/>
                 <span className="text-sm font-medium tracking-tight">
                   {item.label}
                 </span>
@@ -80,7 +84,7 @@ export const DashboardSidebar = () => {
     </SidebarGroupContent>
   </SidebarGroup>
   <div className="px-2 py-1">
-          <Separator className="opacity-100 text-[#878787]" />
+          <Separator className="opacity-20 bg-white/80" />
         </div>
   <SidebarGroup>
     <SidebarGroupContent>
@@ -88,18 +92,21 @@ export const DashboardSidebar = () => {
         {secondSection.map((item) => (
           <SidebarMenuItem key={item.href}>
             <SidebarMenuButton
-              asChild
-              className={cn(
-                "h-10 hover:bg-sidebar-accent border border-transparent hover:border-sidebar-border",
-                pathname === item.href && "bg-sidebar-accent border-sidebar-border"
-              )}
-              isActive={pathname === item.href}
-            >
-              <Link href={item.href} className="flex items-center gap-2">
-                <item.icon/>
-                <span className="text-sm font-medium tracking-tight">
-                  {item.label}
-                </span>
+                asChild
+                className={cn(
+                  "h-10 hover:bg-linear-to-r/oklch border border-transparent hover:border-white/10 from-sidebar-accent from-5% via-30% via-sidebar/50 to-sidebar/50", 
+                
+                pathname === item.href && "bg-linear-to-r/oklch border-white/10")}
+                isActive={pathname === item.href}
+              >
+                <Link href={item.href} className={cn(
+                  "flex items-center gap-2 text-white/90",
+                  pathname === item.href && "text-white font-semibold"
+                )}>
+                  <item.icon className="size-5"/>
+                  <span className="text-sm font-medium tracking-tight">
+                    {item.label}
+                  </span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

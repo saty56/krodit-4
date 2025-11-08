@@ -15,6 +15,8 @@ import { CreditCardIcon } from "lucide-react";
 import { getLogoUrlViaApi } from "@/lib/logo-api";
 import { UpdateSubscriptionDialog } from "../components/update-subscription-dialog";
 import { useConfirm } from "@/hooks/use-confirm";
+import { useSidebar } from "@/components/ui/sidebar";
+import { cancelReminderNotifications } from "@/lib/notification-service";
 
 /**
  * Component that displays a logo for a subscription service by name
@@ -115,6 +117,9 @@ export const SubscriptionIdView = ({ subscriptionId }: Props) => {
     const removeSubscription = useMutation(
         trpc.subscriptions.remove.mutationOptions({
             onSuccess: async () => {
+                // Cancel scheduled notifications for this subscription
+                await cancelReminderNotifications(subscriptionId);
+                
                 await queryClient.invalidateQueries(
                     trpc.subscriptions.listMany.queryOptions({})
                 );
@@ -142,6 +147,21 @@ export const SubscriptionIdView = ({ subscriptionId }: Props) => {
         await removeSubscription.mutateAsync({ id: subscriptionId });
     };
 
+    const containerRef = React.useRef<HTMLDivElement>(null);
+    const { state } = useSidebar();
+
+    React.useEffect(() => {
+        if (containerRef.current) {
+            if (state === "collapsed") {
+                containerRef.current.style.paddingLeft = "1rem";
+                containerRef.current.style.paddingRight = "1rem";
+            } else {
+                containerRef.current.style.paddingLeft = "";
+                containerRef.current.style.paddingRight = "";
+            }
+        }
+    }, [state]);
+
     return (
         <>
         <RemoveConfirmation />
@@ -150,7 +170,7 @@ export const SubscriptionIdView = ({ subscriptionId }: Props) => {
         onOpenChange={setUpdateSubscriptionDialogOpen}
         initialValues={data}
         />
-        <div className="flex-1 py-4 px-4 md:px-8 flex flex-col gap-y-4">
+        <div ref={containerRef} className="flex-1 py-4 px-4 md:px-8 flex flex-col gap-y-4 sidebar-page-container">
             <SubscriptionIdViewHeader
             subscriptionId={subscriptionId}
             subscriptionName={data.name}

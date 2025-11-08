@@ -191,7 +191,7 @@ export default function SignInPage() {
           </div>
           <div className="v-divider" />
           <div className="pane right">
-            <img src="/m.png" alt="Krodit Logo" className="signin-logo" />
+            <img src="/file.svg" alt="Krodit Logo" className="signin-logo" />
           </div>
         </div>
       </div>

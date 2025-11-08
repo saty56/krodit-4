@@ -1,9 +1,11 @@
 "use client";
 
+import React from "react";
 import { useRouter } from "next/navigation";
 import { useSuspenseQuery } from "@tanstack/react-query";
 
 import { useTRPC } from "@/trpc/client";
+import { useSidebar } from "@/components/ui/sidebar";
 import { ErrorState } from "@/components/error-state";
 import { LoadingState } from "@/components/loading-state";
 import { EmptyState } from "@/components/empty-state";
@@ -27,8 +29,23 @@ export const SubscriptionsView = () => {
     })
   );
 
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const { state } = useSidebar();
+
+  React.useEffect(() => {
+    if (containerRef.current) {
+      if (state === "collapsed") {
+        containerRef.current.style.paddingLeft = "1rem";
+        containerRef.current.style.paddingRight = "1rem";
+      } else {
+        containerRef.current.style.paddingLeft = "";
+        containerRef.current.style.paddingRight = "";
+      }
+    }
+  }, [state]);
+
   return (
-    <div className="flex-1 pb-4 px-4 md:px-8 flex flex-col gap-y-4">
+    <div ref={containerRef} className="flex-1 pb-4 px-4 md:px-8 flex flex-col gap-y-4 sidebar-page-container">
       {data.items.length === 0 ? (
         <EmptyState 
           title="No subscriptions found" 

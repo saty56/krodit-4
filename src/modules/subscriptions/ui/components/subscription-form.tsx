@@ -17,6 +17,7 @@ import { fallbackIconUrls } from "@/lib/logos";
 import { SubscriptionListOne } from "../../types";
 import { subscriptionsInsertschema, subscriptionCategoryValues, billingCycleValues } from "../../schema";
 import { toast } from "sonner";
+import { cancelReminderNotifications } from "@/lib/notification-service";
 
 import {
     Form,
@@ -79,7 +80,34 @@ export const SubscriptionForm = ({
     // Mutation for updating an existing subscription
     const updateSubscription = useMutation(
         trpc.subscriptions.update.mutationOptions({
-            onSuccess: async () => {
+            onSuccess: async (updatedSubscription, variables) => {
+                // Cancel notifications if billing date changed or subscription was deactivated
+                if (initialValues?.id) {
+                    // Normalize dates for comparison (both might be Date objects or strings)
+                    const normalizeDate = (date: Date | string | null | undefined): string => {
+                        if (!date) return '';
+                        if (date instanceof Date) return date.toISOString().split('T')[0];
+                        if (typeof date === 'string') {
+                            // If it's already in YYYY-MM-DD format, return as is
+                            if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+                            // Otherwise try to parse it
+                            const d = new Date(date);
+                            return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+                        }
+                        return '';
+                    };
+                    
+                    const oldDate = normalizeDate(initialValues.nextBillingDate);
+                    const newDate = normalizeDate(variables.nextBillingDate);
+                    const billingDateChanged = oldDate !== newDate;
+                    const wasDeactivated = 
+                        (initialValues as any).isActive && !variables.isActive;
+                    
+                    if (billingDateChanged || wasDeactivated) {
+                        await cancelReminderNotifications(initialValues.id);
+                    }
+                }
+
                 await queryClient.invalidateQueries(
                     trpc.subscriptions.listMany.queryOptions({})
                 );

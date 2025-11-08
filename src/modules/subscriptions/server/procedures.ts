@@ -151,5 +151,157 @@ export const subscriptionsRouter = createTRPCRouter({
         .returning();
 
       return createdSubscription;
-    })
+    }),
+
+  /**
+   * Get all subscriptions for export
+   * Returns all subscriptions without pagination for data export
+   */
+  getAllForExport: protectedProcedure
+    .query(async ({ ctx }) => {
+      const allSubscriptions = await db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.userId, ctx.auth.user.id))
+        .orderBy(desc(subscriptions.createdAt), desc(subscriptions.name));
+
+      return allSubscriptions;
+    }),
+
+  /**
+   * Get analytics and report data for subscriptions
+   * Returns statistics, spending breakdown, and category analysis
+   */
+  getReport: protectedProcedure
+    .query(async ({ ctx }) => {
+      // Get all subscriptions for the user
+      const allSubscriptions = await db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.userId, ctx.auth.user.id));
+
+      // Calculate total counts
+      const totalSubscriptions = allSubscriptions.length;
+      const activeSubscriptions = allSubscriptions.filter((s) => s.isActive).length;
+      const inactiveSubscriptions = totalSubscriptions - activeSubscriptions;
+
+      // Calculate spending by converting amounts and handling different billing cycles
+      const calculateMonthlySpending = (sub: typeof allSubscriptions[0]): number => {
+        const amount = parseFloat(sub.amount || "0");
+        if (amount === 0) return 0;
+
+        switch (sub.billingCycle) {
+          case "monthly":
+            return amount;
+          case "yearly":
+            return amount / 12;
+          case "weekly":
+            return amount * 4.33; // Average weeks per month
+          case "one_time":
+            return 0; // One-time payments don't count in monthly spending
+          default:
+            return amount;
+        }
+      };
+
+      const calculateYearlySpending = (sub: typeof allSubscriptions[0]): number => {
+        const amount = parseFloat(sub.amount || "0");
+        if (amount === 0) return 0;
+
+        switch (sub.billingCycle) {
+          case "monthly":
+            return amount * 12;
+          case "yearly":
+            return amount;
+          case "weekly":
+            return amount * 52;
+          case "one_time":
+            return 0;
+          default:
+            return amount * 12;
+        }
+      };
+
+      // Calculate total spending (only active subscriptions)
+      const activeSubs = allSubscriptions.filter((s) => s.isActive);
+      const totalMonthlySpending = activeSubs.reduce(
+        (sum, sub) => sum + calculateMonthlySpending(sub),
+        0
+      );
+      const totalYearlySpending = activeSubs.reduce(
+        (sum, sub) => sum + calculateYearlySpending(sub),
+        0
+      );
+
+      // Spending by category
+      const spendingByCategory: Record<string, { monthly: number; yearly: number; count: number }> = {};
+      
+      activeSubs.forEach((sub) => {
+        const category = sub.category || "other";
+        if (!spendingByCategory[category]) {
+          spendingByCategory[category] = { monthly: 0, yearly: 0, count: 0 };
+        }
+        spendingByCategory[category].monthly += calculateMonthlySpending(sub);
+        spendingByCategory[category].yearly += calculateYearlySpending(sub);
+        spendingByCategory[category].count += 1;
+      });
+
+      // Convert to array format for charts
+      const categoryBreakdown = Object.entries(spendingByCategory).map(([category, data]) => ({
+        category: category.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+        monthly: Math.round(data.monthly * 100) / 100,
+        yearly: Math.round(data.yearly * 100) / 100,
+        count: data.count,
+      }));
+
+      // Upcoming billing dates (next 30 days)
+      const now = new Date();
+      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      
+      const upcomingBilling = activeSubs
+        .filter((sub) => {
+          if (!sub.nextBillingDate) return false;
+          const billingDate = new Date(sub.nextBillingDate);
+          return billingDate >= now && billingDate <= thirtyDaysFromNow;
+        })
+        .map((sub) => ({
+          id: sub.id,
+          name: sub.name,
+          amount: sub.amount,
+          currency: sub.currency,
+          nextBillingDate: sub.nextBillingDate,
+        }))
+        .sort((a, b) => {
+          const dateA = new Date(a.nextBillingDate!).getTime();
+          const dateB = new Date(b.nextBillingDate!).getTime();
+          return dateA - dateB;
+        })
+        .slice(0, 10); // Top 10 upcoming
+
+      // Billing cycle distribution
+      const billingCycleDistribution = activeSubs.reduce((acc, sub) => {
+        const cycle = sub.billingCycle || "monthly";
+        acc[cycle] = (acc[cycle] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Auto-renew statistics
+      const autoRenewCount = activeSubs.filter((s) => s.isAutoRenew).length;
+      const manualRenewCount = activeSubs.length - autoRenewCount;
+
+      return {
+        summary: {
+          totalSubscriptions,
+          activeSubscriptions,
+          inactiveSubscriptions,
+          totalMonthlySpending: Math.round(totalMonthlySpending * 100) / 100,
+          totalYearlySpending: Math.round(totalYearlySpending * 100) / 100,
+          autoRenewCount,
+          manualRenewCount,
+        },
+        categoryBreakdown,
+        upcomingBilling,
+        billingCycleDistribution,
+      };
+    }),
 }); 

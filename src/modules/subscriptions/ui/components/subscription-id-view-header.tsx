@@ -61,11 +61,11 @@ export const SubscriptionIdViewHeader = ({
                 </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={onEdit}>
-                  <PencilIcon className="size-4 text-black" />
+                  <PencilIcon className="size-4 text-blue-600 dark:text-blue-400" />
                   Edit
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={onRemove}>
-                  <TrashIcon className="size-4 text-black" />
+                  <TrashIcon className="size-4 text-blue-600 dark:text-blue-400" />
                   Cancel
                 </DropdownMenuItem>
               </DropdownMenuContent>
