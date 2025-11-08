@@ -47,13 +47,14 @@ export const commonCurrencies = [
  * Currency validation schema
  * Validates ISO 4217 currency codes (3 uppercase letters)
  */
-const currencySchema = z
-  .string()
-  .min(3, { message: "Currency code must be 3 characters" })
-  .max(3, { message: "Currency code must be 3 characters" })
-  .regex(/^[A-Z]{3}$/, { message: "Currency code must be 3 uppercase letters" })
-  .transform((v) => v.toUpperCase())
-  .default("USD");
+const currencySchema = z.preprocess(
+  (val) => (typeof val === "string" ? val.toUpperCase() : val),
+  z
+    .string()
+    .min(3, { message: "Currency code must be 3 characters" })
+    .max(3, { message: "Currency code must be 3 characters" })
+    .regex(/^[A-Z]{3}$/, { message: "Currency code must be 3 uppercase letters" })
+).default("USD");
 
 /**
  * Amount validation schema
