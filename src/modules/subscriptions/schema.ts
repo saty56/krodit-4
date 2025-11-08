@@ -49,14 +49,13 @@ export const commonCurrencies = [
  * Accepts lowercase input and normalizes it to uppercase before validation
  */
 const currencySchema = z.preprocess(
-  (val) => (typeof val === 'string' ? val.toUpperCase() : val),
+  (val) => (typeof val === "string" ? val.toUpperCase() : val),
   z
     .string()
     .min(3, { message: "Currency code must be 3 characters" })
     .max(3, { message: "Currency code must be 3 characters" })
     .regex(/^[A-Z]{3}$/, { message: "Currency code must be 3 uppercase letters" })
-    .default("USD")
-);
+).default("USD");
 
 /**
  * Amount validation schema
