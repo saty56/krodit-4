@@ -88,27 +88,7 @@ export async function POST(request: NextRequest) {
     // Read raw body for signature verification
     const rawBody = await request.text();
     
-    // Parse webhook payload first
-    let payload: any;
-    try {
-      if (contentType.includes("application/json")) {
-        payload = JSON.parse(rawBody);
-      } else if (contentType.includes("application/x-www-form-urlencoded")) {
-        // Handle form-encoded data
-        const params = new URLSearchParams(rawBody);
-        payload = Object.fromEntries(params);
-      } else {
-        payload = { raw: rawBody };
-      }
-    } catch (error) {
-      console.error("Error parsing webhook payload:", error);
-      return NextResponse.json(
-        { error: "Invalid payload format" },
-        { status: 400 }
-      );
-    }
-
-    // Verify signature if secret is provided
+    // SECURITY: Verify signature BEFORE parsing payload to prevent processing untrusted data
     if (webhookSecret && signature) {
       // Determine provider from headers or default to generic HMAC
       let provider: "stripe" | "generic" | "hmac" = "hmac";
@@ -144,6 +124,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Missing signature" },
         { status: 401 }
+      );
+    }
+
+    // Parse webhook payload only after signature verification
+    let payload: any;
+    try {
+      if (contentType.includes("application/json")) {
+        payload = JSON.parse(rawBody);
+      } else if (contentType.includes("application/x-www-form-urlencoded")) {
+        // Handle form-encoded data
+        const params = new URLSearchParams(rawBody);
+        payload = Object.fromEntries(params);
+      } else {
+        payload = { raw: rawBody };
+      }
+    } catch (error) {
+      console.error("Error parsing webhook payload:", error);
+      return NextResponse.json(
+        { error: "Invalid payload format" },
+        { status: 400 }
       );
     }
 

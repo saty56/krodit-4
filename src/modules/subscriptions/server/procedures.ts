@@ -236,9 +236,16 @@ export const subscriptionsRouter = createTRPCRouter({
         spendingByCurrency[currency].yearly += calculateYearlySpending(sub);
       });
 
-      // Calculate totals (for backward compatibility, use the most common currency or USD)
+      // Calculate totals (for backward compatibility, use currency with highest monthly spending)
       const currencies = Object.keys(spendingByCurrency);
-      const primaryCurrency = currencies.length > 0 ? currencies[0] : "USD";
+      const primaryCurrency = currencies.length > 0
+        ? currencies.reduce((prev, curr) =>
+            (spendingByCurrency[curr]?.monthly || 0) >
+            (spendingByCurrency[prev]?.monthly || 0)
+              ? curr
+              : prev
+          )
+        : "USD";
       const totalMonthlySpending = spendingByCurrency[primaryCurrency]?.monthly || 0;
       const totalYearlySpending = spendingByCurrency[primaryCurrency]?.yearly || 0;
 
@@ -258,8 +265,12 @@ export const subscriptionsRouter = createTRPCRouter({
       });
 
       // Convert to array format for charts (group by category, show currency)
+      // Split on last underscore to preserve categories with underscores (e.g., "cloud_storage")
       const categoryBreakdown = Object.entries(spendingByCategory).map(([key, data]) => {
-        const category = key.split('_')[0];
+        const lastUnderscoreIndex = key.lastIndexOf('_');
+        const category = lastUnderscoreIndex !== -1 
+          ? key.substring(0, lastUnderscoreIndex)
+          : key;
         return {
           category: category.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
           monthly: Math.round(data.monthly * 100) / 100,

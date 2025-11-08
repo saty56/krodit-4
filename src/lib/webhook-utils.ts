@@ -7,7 +7,8 @@ import crypto from "crypto";
 
 /**
  * Verify Stripe webhook signature
- * Stripe signature format: t=timestamp,v1=signature
+ * Stripe signature format: t=timestamp,v1=signature1,v1=signature2,...
+ * Stripe can send multiple v1 signatures, verify against all of them
  */
 export function verifyStripeSignature(
   payload: string,
@@ -15,12 +16,21 @@ export function verifyStripeSignature(
   secret: string
 ): boolean {
   try {
-    // Stripe signature format: "t=timestamp,v1=signature"
+    // Stripe signature format: "t=timestamp,v1=signature1,v1=signature2,..."
     const elements = signature.split(",");
     const timestamp = elements.find((el) => el.startsWith("t="))?.split("=")[1];
-    const signatureHash = elements.find((el) => el.startsWith("v1="))?.split("=")[1];
+    
+    if (!timestamp) {
+      return false;
+    }
 
-    if (!signatureHash || !timestamp) {
+    // Extract ALL v1 signatures (Stripe may send multiple)
+    const v1Signatures = elements
+      .filter((el) => el.startsWith("v1="))
+      .map((el) => el.split("=")[1])
+      .filter((sig): sig is string => Boolean(sig));
+
+    if (v1Signatures.length === 0) {
       return false;
     }
 
@@ -31,9 +41,14 @@ export function verifyStripeSignature(
       .update(signedPayload, "utf8")
       .digest("hex");
 
-    return crypto.timingSafeEqual(
-      Buffer.from(signatureHash),
-      Buffer.from(expectedSignature)
+    // Verify against ALL v1 signatures - accept if ANY match
+    // This handles Stripe secret rotation and multiple signature scenarios
+    // Use 'hex' encoding since HMAC digests are hex-encoded strings
+    return v1Signatures.some((signatureHash) =>
+      crypto.timingSafeEqual(
+        Buffer.from(signatureHash, 'hex'),
+        Buffer.from(expectedSignature, 'hex')
+      )
     );
   } catch (error) {
     console.error("Error verifying Stripe signature:", error);
@@ -55,9 +70,10 @@ export function verifyHMACSignature(
       .update(payload, "utf8")
       .digest("hex");
 
+    // Use 'hex' encoding since HMAC digests are hex-encoded strings
     return crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expectedSignature)
+      Buffer.from(signature, 'hex'),
+      Buffer.from(expectedSignature, 'hex')
     );
   } catch (error) {
     console.error("Error verifying HMAC signature:", error);
