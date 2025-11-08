@@ -126,6 +126,7 @@ export const ReportView = () => {
     name: item.category,
     value: item.monthly,
     color: CHART_COLORS[index % CHART_COLORS.length],
+    currency: item.currency || "USD",
   }));
 
   // Prepare data for bar chart (billing cycle distribution)
@@ -181,12 +182,29 @@ export const ReportView = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(summary.totalMonthlySpending, "USD")}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatCurrency(summary.totalYearlySpending, "USD")} per year
-            </p>
+            {summary.spendingByCurrency && summary.spendingByCurrency.length > 0 ? (
+              <div className="space-y-2">
+                {summary.spendingByCurrency.map((item) => (
+                  <div key={item.currency}>
+                    <div className="text-2xl font-bold">
+                      {formatCurrency(item.monthly, item.currency)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {formatCurrency(item.yearly, item.currency)} per year
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold">
+                  {formatCurrency(summary.totalMonthlySpending, "USD")}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {formatCurrency(summary.totalYearlySpending, "USD")} per year
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -242,31 +260,41 @@ export const ReportView = () => {
             <CardDescription>Monthly spending distribution</CardDescription>
           </CardHeader>
           <CardContent>
-            {pieChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={pieChartData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {pieChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value: number) => formatCurrency(value, "USD")} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                No data available
+            <div className="overflow-x-auto overflow-y-hidden w-full">
+              <div className="min-w-[600px] w-full">
+                {pieChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={pieChartData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {pieChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value: number, name: string, entry: any) => {
+                          // Get currency from the payload - for Pie charts, entry.payload contains the data
+                          const currency = entry?.payload?.currency || "USD";
+                          return formatCurrency(value, currency);
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                    No data available
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
 
@@ -315,11 +343,11 @@ export const ReportView = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {categoryBreakdown.map((item) => (
-                    <tr key={item.category} className="border-b">
+                  {categoryBreakdown.map((item, index) => (
+                    <tr key={`${item.category}-${index}`} className="border-b">
                       <td className="p-2 font-medium">{item.category}</td>
-                      <td className="p-2 text-right">{formatCurrency(item.monthly, "USD")}</td>
-                      <td className="p-2 text-right">{formatCurrency(item.yearly, "USD")}</td>
+                      <td className="p-2 text-right">{formatCurrency(item.monthly, item.currency || "USD")}</td>
+                      <td className="p-2 text-right">{formatCurrency(item.yearly, item.currency || "USD")}</td>
                       <td className="p-2 text-right">
                         <Badge variant="outline">{item.count}</Badge>
                       </td>
@@ -327,18 +355,35 @@ export const ReportView = () => {
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="font-bold border-t-2">
-                    <td className="p-2">Total</td>
-                    <td className="p-2 text-right">
-                      {formatCurrency(summary.totalMonthlySpending, "USD")}
-                    </td>
-                    <td className="p-2 text-right">
-                      {formatCurrency(summary.totalYearlySpending, "USD")}
-                    </td>
-                    <td className="p-2 text-right">
-                      <Badge>{summary.activeSubscriptions}</Badge>
-                    </td>
-                  </tr>
+                  {summary.spendingByCurrency && summary.spendingByCurrency.length > 0 ? (
+                    summary.spendingByCurrency.map((currencyItem) => (
+                      <tr key={currencyItem.currency} className="font-bold border-t-2">
+                        <td className="p-2">Total ({currencyItem.currency})</td>
+                        <td className="p-2 text-right">
+                          {formatCurrency(currencyItem.monthly, currencyItem.currency)}
+                        </td>
+                        <td className="p-2 text-right">
+                          {formatCurrency(currencyItem.yearly, currencyItem.currency)}
+                        </td>
+                        <td className="p-2 text-right">
+                          <Badge>{categoryBreakdown.filter(item => item.currency === currencyItem.currency).reduce((sum, item) => sum + item.count, 0)}</Badge>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr className="font-bold border-t-2">
+                      <td className="p-2">Total</td>
+                      <td className="p-2 text-right">
+                        {formatCurrency(summary.totalMonthlySpending, "USD")}
+                      </td>
+                      <td className="p-2 text-right">
+                        {formatCurrency(summary.totalYearlySpending, "USD")}
+                      </td>
+                      <td className="p-2 text-right">
+                        <Badge>{summary.activeSubscriptions}</Badge>
+                      </td>
+                    </tr>
+                  )}
                 </tfoot>
               </table>
             </div>

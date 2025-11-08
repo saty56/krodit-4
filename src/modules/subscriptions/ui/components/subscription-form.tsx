@@ -217,9 +217,9 @@ export const SubscriptionForm = ({
 
     return (
         <Form {...(form as any)}>
-            <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+            <form className="space-y-4 md:space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
                 {/* Logo preview section - shows loading, logo, or generated avatar */}
-                <div className="border size-16 rounded-md overflow-hidden flex items-center justify-center bg-muted/20">
+                <div className="border size-14 sm:size-16 rounded-md overflow-hidden flex items-center justify-center bg-muted/20 mx-auto sm:mx-0">
                     {watchedName ? (
                         logoLoading ? (
                             <div className="w-full h-full animate-pulse bg-muted" />
@@ -238,7 +238,7 @@ export const SubscriptionForm = ({
                         <GeneratedAvatar
                             seed={watchedName}
                             variant="botttsNeutral"
-                            className="border size-16"
+                            className="border size-14 sm:size-16"
                         />
                     )}
                 </div>
@@ -248,9 +248,9 @@ export const SubscriptionForm = ({
                     control={control}
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Name</FormLabel>
+                            <FormLabel className="text-sm font-medium">Name</FormLabel>
                             <FormControl>
-                                <Input {...field} />
+                                <Input {...field} className="text-base sm:text-sm" placeholder="e.g., Netflix" />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -263,15 +263,15 @@ export const SubscriptionForm = ({
                     control={control}
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Category</FormLabel>
+                            <FormLabel className="text-sm font-medium">Category</FormLabel>
                             <FormControl>
                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <SelectTrigger>
+                                    <SelectTrigger className="w-full text-base sm:text-sm">
                                         <SelectValue placeholder="Select a category" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {subscriptionCategoryValues.map((opt) => (
-                                            <SelectItem key={opt} value={opt}>
+                                            <SelectItem key={opt} value={opt} className="text-base sm:text-sm">
                                                 {opt.replaceAll("_", " ")}
                                             </SelectItem>
                                         ))}
@@ -284,15 +284,20 @@ export const SubscriptionForm = ({
                 />
 
                 {/* Amount, Currency, and Billing Cycle in a grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-3">
                     <FormField 
                         name={"amount" as any} 
                         control={control} 
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Amount</FormLabel>
+                                <FormLabel className="text-sm font-medium">Amount</FormLabel>
                                 <FormControl>
-                                    <Input {...field} placeholder="0.00" inputMode="decimal" />
+                                    <Input 
+                                        {...field} 
+                                        placeholder="0.00" 
+                                        inputMode="decimal" 
+                                        className="text-base sm:text-sm"
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -303,9 +308,14 @@ export const SubscriptionForm = ({
                         control={control} 
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Currency</FormLabel>
+                                <FormLabel className="text-sm font-medium">Currency</FormLabel>
                                 <FormControl>
-                                    <Input {...field} placeholder="USD" maxLength={3} />
+                                    <Input 
+                                        {...field} 
+                                        placeholder="USD" 
+                                        maxLength={3} 
+                                        className="text-base sm:text-sm uppercase"
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -316,15 +326,15 @@ export const SubscriptionForm = ({
                         control={control} 
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Billing cycle</FormLabel>
+                                <FormLabel className="text-sm font-medium">Billing cycle</FormLabel>
                                 <FormControl>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <SelectTrigger>
+                                        <SelectTrigger className="w-full text-base sm:text-sm">
                                             <SelectValue placeholder="Select a cycle" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {billingCycleValues.map((opt) => (
-                                                <SelectItem key={opt} value={opt}>
+                                                <SelectItem key={opt} value={opt} className="text-base sm:text-sm">
                                                     {opt.replaceAll("_", " ")}
                                                 </SelectItem>
                                             ))}
@@ -343,12 +353,13 @@ export const SubscriptionForm = ({
                     control={control} 
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Next billing date</FormLabel>
+                            <FormLabel className="text-sm font-medium">Next billing date</FormLabel>
                             <FormControl>
                                 <Input
                                     value={field.value || ""}
                                     onChange={(e) => field.onChange(e.target.value)}
                                     type="date"
+                                    className="text-base sm:text-sm"
                                 />
                             </FormControl>
                             <FormMessage />
@@ -362,11 +373,13 @@ export const SubscriptionForm = ({
                     control={control}
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Instructions</FormLabel>
+                            <FormLabel className="text-sm font-medium">Instructions</FormLabel>
                             <FormControl>
                                 <Textarea 
                                     {...field}
-                                    placeholder="you are amazing" 
+                                    placeholder="Add any notes or instructions..." 
+                                    className="text-base sm:text-sm min-h-[100px] resize-none"
+                                    rows={4}
                                 />
                             </FormControl>
                             <FormMessage />
@@ -381,7 +394,7 @@ export const SubscriptionForm = ({
                         control={control} 
                         render={({ field }) => (
                             <FormItem className="flex items-center justify-between rounded-md border p-3">
-                                <FormLabel className="mb-0">Active</FormLabel>
+                                <FormLabel className="mb-0 text-sm font-medium">Active</FormLabel>
                                 <FormControl>
                                     <Switch checked={!!field.value} onCheckedChange={field.onChange} />
                                 </FormControl>
@@ -393,7 +406,7 @@ export const SubscriptionForm = ({
                         control={control} 
                         render={({ field }) => (
                             <FormItem className="flex items-center justify-between rounded-md border p-3">
-                                <FormLabel className="mb-0">Auto renew</FormLabel>
+                                <FormLabel className="mb-0 text-sm font-medium">Auto renew</FormLabel>
                                 <FormControl>
                                     <Switch checked={!!field.value} onCheckedChange={field.onChange} />
                                 </FormControl>
@@ -403,18 +416,23 @@ export const SubscriptionForm = ({
                 </div>
 
                 {/* Form action buttons */}
-                <div className="flex justify-between gap-x-2">
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3 sm:gap-2 pt-2">
                     {onCancel && (
                         <Button
                             variant="ghost"
                             type="button"
                             onClick={() => onCancel()}
+                            className="w-full sm:w-auto"
                         >
                             Cancel
                         </Button>
                     )}
-                    <Button disabled={isPending} type="submit">
-                        {isEdit ? "Update" : "Create"}
+                    <Button 
+                        disabled={isPending} 
+                        type="submit"
+                        className="w-full sm:w-auto"
+                    >
+                        {isPending ? (isEdit ? "Updating..." : "Creating...") : (isEdit ? "Update" : "Create")}
                     </Button>
                 </div>
             </form>

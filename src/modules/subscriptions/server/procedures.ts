@@ -224,35 +224,50 @@ export const subscriptionsRouter = createTRPCRouter({
 
       // Calculate total spending (only active subscriptions)
       const activeSubs = allSubscriptions.filter((s) => s.isActive);
-      const totalMonthlySpending = activeSubs.reduce(
-        (sum, sub) => sum + calculateMonthlySpending(sub),
-        0
-      );
-      const totalYearlySpending = activeSubs.reduce(
-        (sum, sub) => sum + calculateYearlySpending(sub),
-        0
-      );
+      
+      // Group spending by currency
+      const spendingByCurrency: Record<string, { monthly: number; yearly: number }> = {};
+      activeSubs.forEach((sub) => {
+        const currency = sub.currency || "USD";
+        if (!spendingByCurrency[currency]) {
+          spendingByCurrency[currency] = { monthly: 0, yearly: 0 };
+        }
+        spendingByCurrency[currency].monthly += calculateMonthlySpending(sub);
+        spendingByCurrency[currency].yearly += calculateYearlySpending(sub);
+      });
 
-      // Spending by category
-      const spendingByCategory: Record<string, { monthly: number; yearly: number; count: number }> = {};
+      // Calculate totals (for backward compatibility, use the most common currency or USD)
+      const currencies = Object.keys(spendingByCurrency);
+      const primaryCurrency = currencies.length > 0 ? currencies[0] : "USD";
+      const totalMonthlySpending = spendingByCurrency[primaryCurrency]?.monthly || 0;
+      const totalYearlySpending = spendingByCurrency[primaryCurrency]?.yearly || 0;
+
+      // Spending by category (grouped by currency)
+      const spendingByCategory: Record<string, { monthly: number; yearly: number; count: number; currency: string }> = {};
       
       activeSubs.forEach((sub) => {
         const category = sub.category || "other";
-        if (!spendingByCategory[category]) {
-          spendingByCategory[category] = { monthly: 0, yearly: 0, count: 0 };
+        const currency = sub.currency || "USD";
+        const key = `${category}_${currency}`;
+        if (!spendingByCategory[key]) {
+          spendingByCategory[key] = { monthly: 0, yearly: 0, count: 0, currency };
         }
-        spendingByCategory[category].monthly += calculateMonthlySpending(sub);
-        spendingByCategory[category].yearly += calculateYearlySpending(sub);
-        spendingByCategory[category].count += 1;
+        spendingByCategory[key].monthly += calculateMonthlySpending(sub);
+        spendingByCategory[key].yearly += calculateYearlySpending(sub);
+        spendingByCategory[key].count += 1;
       });
 
-      // Convert to array format for charts
-      const categoryBreakdown = Object.entries(spendingByCategory).map(([category, data]) => ({
-        category: category.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
-        monthly: Math.round(data.monthly * 100) / 100,
-        yearly: Math.round(data.yearly * 100) / 100,
-        count: data.count,
-      }));
+      // Convert to array format for charts (group by category, show currency)
+      const categoryBreakdown = Object.entries(spendingByCategory).map(([key, data]) => {
+        const category = key.split('_')[0];
+        return {
+          category: category.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+          monthly: Math.round(data.monthly * 100) / 100,
+          yearly: Math.round(data.yearly * 100) / 100,
+          count: data.count,
+          currency: data.currency,
+        };
+      });
 
       // Upcoming billing dates (next 30 days)
       const now = new Date();
@@ -298,6 +313,11 @@ export const subscriptionsRouter = createTRPCRouter({
           totalYearlySpending: Math.round(totalYearlySpending * 100) / 100,
           autoRenewCount,
           manualRenewCount,
+          spendingByCurrency: Object.entries(spendingByCurrency).map(([currency, data]) => ({
+            currency,
+            monthly: Math.round(data.monthly * 100) / 100,
+            yearly: Math.round(data.yearly * 100) / 100,
+          })),
         },
         categoryBreakdown,
         upcomingBilling,
