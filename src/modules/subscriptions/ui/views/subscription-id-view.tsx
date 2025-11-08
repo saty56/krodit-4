@@ -12,83 +12,11 @@ import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-q
 import { SubscriptionIdViewHeader } from "../components/subscription-id-view-header";
 import { Badge } from "@/components/ui/badge";
 import { CreditCardIcon } from "lucide-react";
-import { getLogoUrlViaApi } from "@/lib/logo-api";
 import { UpdateSubscriptionDialog } from "../components/update-subscription-dialog";
 import { useConfirm } from "@/hooks/use-confirm";
-import { useSidebar } from "@/components/ui/sidebar";
 import { cancelReminderNotifications } from "@/lib/notification-service";
-
-/**
- * Component that displays a logo for a subscription service by name
- * Fetches logo from API and handles loading/error states
- */
-function LogoByName({ name, className }: { name: string; className?: string }) {
-    const [src, setSrc] = React.useState<string>("");
-    
-    React.useEffect(() => {
-        let mounted = true;
-        const q = String(name || "").trim();
-        
-        if (!q) { 
-            setSrc(""); 
-            return; 
-        }
-        
-        getLogoUrlViaApi(q).then((url) => {
-            if (!mounted) return;
-            setSrc(url || "");
-        });
-        
-        return () => { 
-            mounted = false; 
-        };
-    }, [name]);
-
-    if (!name) {
-        return <div className={className || "size-10"} />;
-    }
-
-    if (!src) {
-        return <div className={(className || "size-10") + " rounded bg-muted"} />;
-    }
-
-    return (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-            src={src}
-            alt={name}
-            className={(className || "size-10") + " rounded"}
-            onError={(e) => { 
-                (e.currentTarget as HTMLImageElement).onerror = null; 
-            }}
-        />
-    );
-}
-
-/**
- * Helper function to format currency amount
- */
-function formatCurrency(amount: any, currency: any = "USD"): string {
-    const raw = amount ?? "0.00";
-    try {
-        const n = parseFloat(String(raw));
-        return new Intl.NumberFormat(undefined, { 
-            style: "currency", 
-            currency 
-        }).format(isFinite(n) ? n : 0);
-    } catch {
-        return String(raw);
-    }
-}
-
-/**
- * Helper function to format date for display
- */
-function formatDate(date: Date | string | undefined): string {
-    if (!date) return "-";
-    const d = typeof date === "string" ? new Date(date) : date;
-    return isNaN(d.getTime()) ? "-" : d.toLocaleDateString();
-}
+import { formatCurrency, formatDate } from "@/lib/format-utils";
+import { LogoByName } from "@/components/logo-by-name";
 
 /**
  * Props for SubscriptionIdView component
@@ -147,21 +75,6 @@ export const SubscriptionIdView = ({ subscriptionId }: Props) => {
         await removeSubscription.mutateAsync({ id: subscriptionId });
     };
 
-    const containerRef = React.useRef<HTMLDivElement>(null);
-    const { state } = useSidebar();
-
-    React.useEffect(() => {
-        if (containerRef.current) {
-            if (state === "collapsed") {
-                containerRef.current.style.paddingLeft = "1rem";
-                containerRef.current.style.paddingRight = "1rem";
-            } else {
-                containerRef.current.style.paddingLeft = "";
-                containerRef.current.style.paddingRight = "";
-            }
-        }
-    }, [state]);
-
     return (
         <>
         <RemoveConfirmation />
@@ -170,7 +83,7 @@ export const SubscriptionIdView = ({ subscriptionId }: Props) => {
         onOpenChange={setUpdateSubscriptionDialogOpen}
         initialValues={data}
         />
-        <div ref={containerRef} className="flex-1 py-4 px-4 md:px-8 flex flex-col gap-y-4 sidebar-page-container">
+        <div className="flex-1 py-4 px-4 md:px-8 flex flex-col gap-y-4 sidebar-page-container">
             <SubscriptionIdViewHeader
             subscriptionId={subscriptionId}
             subscriptionName={data.name}

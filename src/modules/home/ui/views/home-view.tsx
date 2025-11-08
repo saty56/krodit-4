@@ -4,7 +4,6 @@ import React from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useTRPC } from "@/trpc/client";
-import { useSidebar } from "@/components/ui/sidebar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,61 +22,7 @@ import Link from "next/link";
 import { calculateMonthlySpending } from "@/modules/subscriptions/schema";
 import { LoadingState } from "@/components/loading-state";
 import { ErrorState } from "@/components/error-state";
-
-/**
- * Helper function to format currency
- */
-function formatCurrency(amount: number, currency: string = "USD"): string {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: currency || "USD",
-    }).format(amount);
-  } catch {
-    return `${currency} ${amount.toFixed(2)}`;
-  }
-}
-
-/**
- * Helper function to format date for display
- */
-function formatDateDisplay(date: Date | string | null | undefined): string {
-  if (!date) return "-";
-  const d = typeof date === "string" ? new Date(date) : date;
-  if (isNaN(d.getTime())) return "-";
-  
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  
-  const dateStr = d.toLocaleDateString();
-  const todayStr = today.toLocaleDateString();
-  const tomorrowStr = tomorrow.toLocaleDateString();
-  
-  if (dateStr === todayStr) return "Today";
-  if (dateStr === tomorrowStr) return "Tomorrow";
-  
-  return dateStr;
-}
-
-/**
- * Get days until billing date
- */
-function getDaysUntil(date: Date | string | null | undefined): number | null {
-  if (!date) return null;
-  const d = typeof date === "string" ? new Date(date) : date;
-  if (isNaN(d.getTime())) return null;
-  
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const billingDate = new Date(d);
-  billingDate.setHours(0, 0, 0, 0);
-  
-  const diffTime = billingDate.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
-  return diffDays;
-}
+import { formatCurrency, formatDateDisplay, getDaysUntil } from "@/lib/format-utils";
 
 /**
  * Main home view component
@@ -108,23 +53,8 @@ export const HomeView = () => {
     return days !== null && days >= 0 && days <= 7;
   });
 
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const { state } = useSidebar();
-
-  React.useEffect(() => {
-    if (containerRef.current) {
-      if (state === "collapsed") {
-        containerRef.current.style.paddingLeft = "1rem";
-        containerRef.current.style.paddingRight = "1rem";
-      } else {
-        containerRef.current.style.paddingLeft = "";
-        containerRef.current.style.paddingRight = "";
-      }
-    }
-  }, [state]);
-
   return (
-    <div ref={containerRef} className="flex-1 py-4 px-4 md:px-8 flex flex-col gap-y-6 sidebar-page-container">
+    <div className="flex-1 py-4 px-4 md:px-8 flex flex-col gap-y-6 sidebar-page-container">
       {/* Welcome Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -258,7 +188,7 @@ export const HomeView = () => {
                           <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
                             <span>
                               {formatCurrency(
-                                parseFloat(subscription.amount || "0"),
+                                subscription.amount || "0",
                                 subscription.currency || "USD"
                               )}
                             </span>
@@ -333,7 +263,7 @@ export const HomeView = () => {
                         <div className="text-right">
                           <p className="font-semibold text-sm">
                             {formatCurrency(
-                              parseFloat(item.amount || "0"),
+                              item.amount || "0",
                               item.currency || "USD"
                             )}
                           </p>

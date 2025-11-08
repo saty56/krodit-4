@@ -3,7 +3,6 @@
 import React from "react";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
-import { useSidebar } from "@/components/ui/sidebar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   BarChart, 
@@ -48,29 +47,7 @@ import {
   type ExportSummary 
 } from "@/lib/export-utils";
 import { toast } from "sonner";
-
-/**
- * Helper function to format currency
- */
-function formatCurrency(amount: number, currency: string = "USD"): string {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: currency || "USD",
-    }).format(amount);
-  } catch {
-    return `${currency} ${amount.toFixed(2)}`;
-  }
-}
-
-/**
- * Helper function to format date
- */
-function formatDate(date: Date | string | null | undefined): string {
-  if (!date) return "-";
-  const d = typeof date === "string" ? new Date(date) : date;
-  return isNaN(d.getTime()) ? "-" : d.toLocaleDateString();
-}
+import { formatCurrency, formatDate } from "@/lib/format-utils";
 
 /**
  * Colors for charts
@@ -157,23 +134,8 @@ export const ReportView = () => {
     count,
   }));
 
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const { state } = useSidebar();
-
-  React.useEffect(() => {
-    if (containerRef.current) {
-      if (state === "collapsed") {
-        containerRef.current.style.paddingLeft = "1rem";
-        containerRef.current.style.paddingRight = "1rem";
-      } else {
-        containerRef.current.style.paddingLeft = "";
-        containerRef.current.style.paddingRight = "";
-      }
-    }
-  }, [state]);
-
   return (
-    <div ref={containerRef} className="flex-1 py-4 px-4 md:px-8 flex flex-col gap-y-6 sidebar-page-container">
+    <div className="flex-1 py-4 px-4 md:px-8 flex flex-col gap-y-6 sidebar-page-container">
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -413,7 +375,7 @@ export const ReportView = () => {
                   </div>
                   <div className="text-right">
                     <p className="font-semibold">
-                      {formatCurrency(parseFloat(item.amount || "0"), item.currency || "USD")}
+                      {formatCurrency(item.amount || "0", item.currency || "USD")}
                     </p>
                   </div>
                 </div>
