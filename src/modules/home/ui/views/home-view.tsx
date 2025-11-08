@@ -78,12 +78,29 @@ export const HomeView = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(summary.totalMonthlySpending, "USD")}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatCurrency(summary.totalYearlySpending, "USD")} per year
-            </p>
+            {summary.spendingByCurrency && summary.spendingByCurrency.length > 0 ? (
+              <div className="space-y-2">
+                {summary.spendingByCurrency.map((item) => (
+                  <div key={item.currency}>
+                    <div className="text-2xl font-bold">
+                      {formatCurrency(item.monthly, item.currency)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {formatCurrency(item.yearly, item.currency)} per year
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold">
+                  {formatCurrency(summary.totalMonthlySpending, "USD")}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {formatCurrency(summary.totalYearlySpending, "USD")} per year
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -340,7 +357,7 @@ export const HomeView = () => {
                       {item.category}
                     </p>
                     <p className="text-lg font-bold">
-                      {formatCurrency(item.monthly, "USD")}
+                      {formatCurrency(item.monthly, item.currency || "USD")}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {item.count} {item.count === 1 ? "subscription" : "subscriptions"}
