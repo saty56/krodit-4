@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { db } from "@/db";
 import { subscriptions } from "@/db/schema";
-import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
+import { createTRPCRouter, premiumProcedure, protectedProcedure } from "@/trpc/init";
 
 import { subscriptionsInsertschema, subscriptionUpdateSchema } from "../schema";
 import { eq, ilike, and, desc, count } from "drizzle-orm";
@@ -82,7 +82,8 @@ export const subscriptionsRouter = createTRPCRouter({
           )
         );
 
-      return subscription;
+      // Always return a defined value to satisfy react-query expectations
+      return subscription ?? null;
     }),
 
   /**
@@ -136,7 +137,7 @@ export const subscriptionsRouter = createTRPCRouter({
    * Create a new subscription
    * Automatically associates the subscription with the authenticated user
    */
-  create: protectedProcedure
+  create: premiumProcedure("subscriptions")
     .input(subscriptionsInsertschema)
     .mutation(async ({ input, ctx }) => {
       const payload = {

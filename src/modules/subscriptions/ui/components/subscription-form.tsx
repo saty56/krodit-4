@@ -35,6 +35,7 @@ import {
     SelectTrigger, 
     SelectValue 
 } from "@/components/ui/select";
+import { useRouter } from "next/navigation";
 
 /**
  * Props for the SubscriptionForm component
@@ -55,6 +56,7 @@ export const SubscriptionForm = ({
     initialValues,
 }: SubscriptionFormProps) => {
     const trpc = useTRPC();
+    const router = useRouter();
     const queryClient = useQueryClient(); 
 
     // Mutation for creating a new subscription
@@ -64,15 +66,18 @@ export const SubscriptionForm = ({
                 await queryClient.invalidateQueries(
                     trpc.subscriptions.listMany.queryOptions({})
                 );
-
-                // TODO: Invalidate free tier usage when implemented
+                await queryClient.invalidateQueries(
+                    trpc.premium.getFreeUsage.queryOptions(),
+                );
 
                 onSuccess?.();
             },
             onError: (error) => { 
                 toast.error(error.message);
 
-                // TODO: Check if error code is "FORBIDDEN", redirect to "/upgrade"
+               if (error.data?.code === "FORBIDDEN") {
+                  router.push("/upgrade")
+               }
             },
         }),
     );

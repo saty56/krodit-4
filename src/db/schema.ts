@@ -116,3 +116,19 @@ export const logos = pgTable("logos", {
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 });
+
+// Tracks each export action a user performs (for free-tier limits, analytics, etc.)
+export const reportsExports = pgTable("reports_exports", {
+  id: text("id").primaryKey().$defaultFn(() => nanoid()),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  // Optional descriptive fields for future use:
+  // reportType: text("report_type"),
+  // format: text("format"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+});

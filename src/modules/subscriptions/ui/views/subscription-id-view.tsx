@@ -45,11 +45,15 @@ export const SubscriptionIdView = ({ subscriptionId }: Props) => {
     const removeSubscription = useMutation(
         trpc.subscriptions.remove.mutationOptions({
             onSuccess: async () => {
+                
                 // Cancel scheduled notifications for this subscription
                 await cancelReminderNotifications(subscriptionId);
                 
                 await queryClient.invalidateQueries(
                     trpc.subscriptions.listMany.queryOptions({})
+                );
+                await queryClient.invalidateQueries(
+                    trpc.premium.getFreeUsage.queryOptions(),
                 );
                 router.push("/subscriptions");
             },

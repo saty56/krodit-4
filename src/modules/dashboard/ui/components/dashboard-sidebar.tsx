@@ -17,6 +17,7 @@ import {
   SidebarGroupContent, 
   SidebarFooter } from "@/components/ui/sidebar";
 
+import { DashboardTrial } from "./dashboard-trial";
 import { DashboardUserButton } from "./dashboard-user-button";
 
 const firstSection = [
@@ -116,8 +117,9 @@ export const DashboardSidebar = () => {
     </SidebarGroup>
     </SidebarContent>
     <SidebarFooter className="text-sidebar-foreground px-2 py-2">
+      <DashboardTrial />
       <DashboardUserButton/>
     </SidebarFooter>
     </Sidebar>
-  );
+  );  
 };

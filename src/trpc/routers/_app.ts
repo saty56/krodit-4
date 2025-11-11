@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { subscriptionsRouter } from '@/modules/subscriptions/server/procedures';
+import { premiumRouter } from '@/modules/premium/server/procedures';
 
 import { baseProcedure, createTRPCRouter } from '../init';
 
@@ -15,6 +16,7 @@ export const appRouter = createTRPCRouter({
       greeting: `Hello ${input.text}!`,
     })),
   subscriptions: subscriptionsRouter,
+  premium: premiumRouter,
 });
 
 // Export type definition of API
