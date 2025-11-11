@@ -10,7 +10,7 @@ const pricingCardVariants = cva("rounded-lg p-4 py-6 w-full", {
     variants: {
         variant: {
             default: "bg-white text-black",
-            highlighted: "bg-gradient-to-br from-blue-600 to-blue-800 text-white",
+            highlighted: "bg-[oklch(0.22_0.18_250)] text-white",
         }
     },
     defaultVariants: {
