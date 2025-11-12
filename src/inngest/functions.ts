@@ -16,7 +16,7 @@ export const subscriptionCreated = inngest.createFunction(
   { event: "subscriptions/created" },
   async ({ event, step }) => {
      const response = await step.run("fetch-transcript", async () => {
-        return await step.fetch(event.data.transcriptUrl).then(response => response.text());
+        return fetch(event.data.transcriptUrl).then((res) => res.text());
     });
         const transcript = await step.run("parse-transcript", async () => {
         const parsed = JSONL.parse(response);
