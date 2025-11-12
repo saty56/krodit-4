@@ -3,7 +3,7 @@ import JSONL from "jsonl-parse-stringify"
 import { inngest } from "@/inngest/client";
 import { SubscriptionCreated } from "@/modules/subscriptions/types";
 import { db } from "@/db";
-import {  subscriptions, user } from "@/db/schema";
+import { subscriptions, user } from "@/db/schema";
 import { inArray } from "drizzle-orm";
 
 // Transcript item type that references existing subscriptions
