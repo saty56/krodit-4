@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
@@ -48,7 +47,13 @@ export const DashboardSidebar = () => {
     <Sidebar>
       <SidebarHeader className="text-sidebar-accent-foreground">
           <Link href="/" className="flex items-center gap-2 px-2 pt-2">
-            <Image src="/file.svg" width={46} height={46} alt="KRODIT" />
+            <img 
+              src="/file.svg" 
+              width={46} 
+              height={46} 
+              alt="KRODIT" 
+              className="object-contain"
+            />
             <p className="text-2xl font-semibold">KRODIT</p>
           </Link>
           </SidebarHeader>
