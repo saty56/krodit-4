@@ -1,3 +1,6 @@
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { DashboardSidebar } from "@/modules/dashboard/ui/components/dashboard-sidebar";
 import RequireAuth from "@/modules/dashboard/ui/components/auth/require-auth";
@@ -9,7 +12,14 @@ interface Props {
   children: React.ReactNode;
 }
 
-const Layout = ({ children }: Props) => {
+const Layout = async ({ children }: Props) => {
+  // Server-side auth check - redirect immediately if not authenticated
+  const session = await auth.api.getSession({ headers: await headers() });
+  
+  if (!session?.user) {
+    redirect("/sign-in");
+  }
+
   return (
     <SidebarProvider>
       <DashboardSidebar /> 

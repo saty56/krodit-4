@@ -87,7 +87,7 @@ export default function SignInPage() {
 
   // Show loading overlay during OAuth callback to prevent page blink
   if (isOAuthCallback) {
-    return <AuthLoadingOverlay message="Completing sign in..." fullScreen />;
+    return <AuthLoadingOverlay message="Taking you to dashboard..." fullScreen />;
   }
 
   return (
