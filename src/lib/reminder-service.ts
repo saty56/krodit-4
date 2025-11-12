@@ -5,7 +5,7 @@
  */
 
 import { db } from "@/db";
-import { subscriptions } from "@/db/schema";
+import { reminderLogs, subscriptions, user } from "@/db/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 
 /**
@@ -135,5 +135,85 @@ export async function getUserReminders(userId: string) {
     .filter((reminder): reminder is NonNullable<typeof reminder> => reminder !== null);
 
   return reminders;
+}
+
+/**
+ * Get all reminders across all users for server-side processes (emails)
+ */
+export async function getAllRemindersWithUser() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const endOfTomorrow = new Date(tomorrow);
+  endOfTomorrow.setHours(23, 59, 59, 999);
+
+  // Join subscriptions with users for email addresses
+  const rows = await db
+    .select({
+      subscriptionId: subscriptions.id,
+      subscriptionName: subscriptions.name,
+      amount: subscriptions.amount,
+      currency: subscriptions.currency,
+      billingDate: subscriptions.nextBillingDate,
+      userId: subscriptions.userId,
+      userEmail: user.email,
+      userName: user.name,
+    })
+    .from(subscriptions)
+    .leftJoin(user, eq(subscriptions.userId, user.id))
+    .where(
+      and(
+        eq(subscriptions.isActive, true),
+        sql`${subscriptions.nextBillingDate} IS NOT NULL`,
+        gte(subscriptions.nextBillingDate, today),
+        lte(subscriptions.nextBillingDate, endOfTomorrow)
+      )
+    );
+
+  return rows
+    .map((row) => {
+      const reminderType = getReminderType(row.billingDate as any);
+      if (!reminderType || !row.userEmail) return null;
+      return {
+        ...row,
+        reminderType,
+        message: formatReminderMessage(
+          row.subscriptionName as string,
+          String(row.amount ?? "0"),
+          String(row.currency ?? "USD"),
+          row.billingDate as Date,
+          reminderType
+        ),
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+}
+
+/**
+ * Check if a reminder was already sent for a given subscription/date/type/channel
+ */
+export async function hasReminderBeenSent(params: {
+  subscriptionId: string;
+  userId: string;
+  reminderType: 'today' | 'tomorrow';
+  billingDate: Date;
+  channel?: 'email' | 'push';
+}) {
+  const dateOnly = new Date(params.billingDate);
+  dateOnly.setHours(0, 0, 0, 0);
+  const existing = await db
+    .select({ id: reminderLogs.id })
+    .from(reminderLogs)
+    .where(
+      and(
+        eq(reminderLogs.subscriptionId, params.subscriptionId),
+        eq(reminderLogs.userId, params.userId),
+        eq(reminderLogs.reminderType, params.reminderType),
+        eq(reminderLogs.billingDate, dateOnly),
+        params.channel ? eq(reminderLogs.channel, params.channel) : sql`1=1`
+      )
+    );
+  return existing.length > 0;
 }
 

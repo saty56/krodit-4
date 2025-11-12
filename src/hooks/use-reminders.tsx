@@ -15,6 +15,12 @@ import {
   registerServiceWorker,
   scheduleReminderNotifications,
   isNotificationSupported,
+  initReminderSound,
+  playReminderSound,
+  startReminderAlarm,
+  stopReminderAlarm,
+  canShowDailyReminder,
+  recordDailyReminderShown,
 } from "@/lib/notification-service";
 
 /**
@@ -62,6 +68,9 @@ export function useReminders() {
         console.log("Notifications not supported in this browser");
         return;
       }
+
+      // Prime audio on first user gesture
+      initReminderSound();
 
       // Register service worker for background notifications
       await registerServiceWorker();
@@ -117,18 +126,46 @@ export function useReminders() {
       
       // Stagger notifications slightly to avoid overlap
       setTimeout(() => {
+        // Enforce per-subscription daily limit for toasts
+        if (!canShowDailyReminder(reminder.subscriptionId)) {
+          return;
+        }
+
+        try {
+          if (isToday) {
+            // Start a longer alarm for at least 60s for today reminders
+            startReminderAlarm({ priority: 'today', minSeconds: 60 });
+          } else {
+            // Softer one-shot chime for tomorrow
+            playReminderSound({ priority: 'tomorrow' });
+          }
+        } catch {}
+
         toast.info(reminder.message, {
           icon: <Bell className="h-4 w-4" />,
-          duration: isToday ? 10000 : 8000, // Longer duration for today's reminders
+          duration: isToday ? 10000 : 8000, // Toast duration; alarm plays independently
           action: {
             label: "View",
             onClick: () => {
+              try { stopReminderAlarm(); } catch {}
               window.location.href = `/subscriptions/${reminder.subscriptionId}`;
             },
           },
+          // Stop the alarm when the toast is dismissed/closed by any means
+          onDismiss: () => { try { stopReminderAlarm(); } catch {} },
+          // In case of auto-close, also stop the alarm immediately
+          onAutoClose: () => { try { stopReminderAlarm(); } catch {} },
         });
 
-        // Mark as shown immediately
+        // Record against the daily limit after showing the toast
+        try { recordDailyReminderShown(reminder.subscriptionId); } catch {}
+
+        // Safety stop after ~65s in case user doesn't interact
+        if (isToday) {
+          setTimeout(() => { try { stopReminderAlarm(); } catch {} }, 65_000);
+        }
+
+        // Mark as shown immediately (session-level)
         markReminderAsShown(reminderKey);
       }, index * 300); // 300ms delay between each notification
     });

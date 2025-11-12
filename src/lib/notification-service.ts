@@ -4,6 +4,234 @@
  * Works even when the app is closed or browser tab is inactive
  */
 
+// ----------------------
+// Reminder sound support
+// ----------------------
+let audioCtx: AudioContext | null = null;
+let audioPrimed = false;
+const SOUND_STORAGE_KEY = "krodit:reminderSoundEnabled";
+
+function getDefaultSoundEnabled(): boolean {
+  try {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem(SOUND_STORAGE_KEY) : null;
+    if (saved === null) return true; // default on
+    return saved === '1';
+  } catch {
+    return true;
+  }
+}
+
+let reminderSoundEnabled = getDefaultSoundEnabled();
+
+function primeAudioContext() {
+  if (audioPrimed) return;
+  try {
+    // Some browsers need an explicit user gesture before creating/resuming
+    audioCtx = audioCtx || new (window.AudioContext || (window as any).webkitAudioContext)();
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+    audioPrimed = true;
+  } catch {
+    // no-op
+  }
+}
+
+function attachOneTimeGestureListeners() {
+  if (typeof window === 'undefined') return;
+  const handler = () => {
+    primeAudioContext();
+    window.removeEventListener('click', handler);
+    window.removeEventListener('keydown', handler);
+    window.removeEventListener('touchstart', handler, { capture: true } as any);
+  };
+  window.addEventListener('click', handler, { once: true } as any);
+  window.addEventListener('keydown', handler, { once: true } as any);
+  window.addEventListener('touchstart', handler, { once: true, passive: true } as any);
+}
+
+export function initReminderSound() {
+  attachOneTimeGestureListeners();
+}
+
+export function setReminderSoundEnabled(enabled: boolean) {
+  reminderSoundEnabled = enabled;
+  try {
+    localStorage.setItem(SOUND_STORAGE_KEY, enabled ? '1' : '0');
+  } catch {}
+}
+
+export function isReminderSoundEnabled() {
+  return reminderSoundEnabled;
+}
+
+export function playReminderSound(options?: { priority?: 'today' | 'tomorrow' }) {
+  if (typeof window === 'undefined') return;
+  if (!reminderSoundEnabled) return;
+  // Only play when page is visible to avoid background audio surprises
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+
+  primeAudioContext();
+  if (!audioCtx) return;
+
+  const ctx = audioCtx;
+  const now = ctx.currentTime;
+
+  // Simple two-tone chime; stronger for today
+  const isToday = options?.priority === 'today';
+  const volume = isToday ? 0.15 : 0.08;
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(volume, now + 0.005);
+
+  const o1 = ctx.createOscillator();
+  o1.type = 'sine';
+  o1.frequency.setValueAtTime(isToday ? 880 : 660, now);
+
+  const o2 = ctx.createOscillator();
+  o2.type = 'sine';
+  o2.frequency.setValueAtTime(isToday ? 1320 : 990, now + 0.12);
+
+  const master = ctx.createGain();
+  master.gain.setValueAtTime(1, now);
+
+  o1.connect(gain).connect(master).connect(ctx.destination);
+  o2.connect(gain);
+
+  // Envelope: quick attack/decay
+  gain.gain.setTargetAtTime(0, now + 0.18, 0.08);
+
+  o1.start(now);
+  o2.start(now + 0.1);
+
+  o1.stop(now + 0.5);
+  o2.stop(now + 0.6);
+
+  const cleanup = () => {
+    try { o1.disconnect(); } catch {}
+    try { o2.disconnect(); } catch {}
+    try { gain.disconnect(); } catch {}
+    try { master.disconnect(); } catch {}
+  };
+  o2.addEventListener?.('ended', cleanup as any);
+  setTimeout(cleanup, 700);
+}
+
+// ----------------------
+// Daily reminder limit (per subscription, per local day)
+// ----------------------
+const DAILY_LIMIT_PREFIX = "krodit:reminderDaily:v1:";
+
+function getLocalDayKey(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${DAILY_LIMIT_PREFIX}${y}-${m}-${d}`;
+}
+
+function loadDailyCounts(): Record<string, number> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const key = getLocalDayKey();
+    const raw = localStorage.getItem(key);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveDailyCounts(counts: Record<string, number>) {
+  if (typeof window === 'undefined') return;
+  try {
+    const key = getLocalDayKey();
+    localStorage.setItem(key, JSON.stringify(counts));
+  } catch {}
+}
+
+export function canShowDailyReminder(subscriptionId: string, limit = 2): boolean {
+  if (!subscriptionId) return true;
+  const counts = loadDailyCounts();
+  const current = counts[subscriptionId] || 0;
+  return current < limit;
+}
+
+export function recordDailyReminderShown(subscriptionId: string) {
+  if (!subscriptionId) return;
+  const counts = loadDailyCounts();
+  counts[subscriptionId] = (counts[subscriptionId] || 0) + 1;
+  saveDailyCounts(counts);
+}
+
+// ----------------------
+// Long-running reminder alarm (loops the chime)
+// ----------------------
+let alarmInterval: ReturnType<typeof setInterval> | null = null;
+let alarmStopTimeout: ReturnType<typeof setTimeout> | null = null;
+let alarmActive = false;
+let alarmUntil = 0; // epoch ms
+let alarmMinMs = 60_000; // default 1 minute
+
+export function setReminderAlarmMinSeconds(seconds: number) {
+  alarmMinMs = Math.max(1, Math.floor(seconds)) * 1000;
+}
+
+export function stopReminderAlarm() {
+  alarmActive = false;
+  alarmUntil = 0;
+  if (alarmInterval) {
+    try { clearInterval(alarmInterval); } catch {}
+    alarmInterval = null;
+  }
+  if (alarmStopTimeout) {
+    try { clearTimeout(alarmStopTimeout); } catch {}
+    alarmStopTimeout = null;
+  }
+}
+
+export function startReminderAlarm(options?: { priority?: 'today' | 'tomorrow'; minSeconds?: number }) {
+  if (typeof window === 'undefined') return;
+  if (!reminderSoundEnabled) return;
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+
+  // Ensure audio primed
+  primeAudioContext();
+  if (!audioCtx) return;
+
+  const minMs = Math.max(alarmMinMs, (options?.minSeconds ?? 0) * 1000);
+  const now = Date.now();
+
+  // If already active, extend end time if needed
+  if (alarmActive) {
+    alarmUntil = Math.max(alarmUntil, now + minMs);
+    return;
+  }
+
+  alarmActive = true;
+  alarmUntil = now + minMs;
+
+  // Play immediately
+  try { playReminderSound({ priority: options?.priority }); } catch {}
+
+  // Repeat every 3 seconds to feel continuous but not overwhelming
+  alarmInterval = setInterval(() => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    const t = Date.now();
+    if (t >= alarmUntil) {
+      stopReminderAlarm();
+      return;
+    }
+    try { playReminderSound({ priority: options?.priority }); } catch {}
+  }, 3000);
+
+  // Hard stop as a safety at alarmUntil
+  alarmStopTimeout = setTimeout(() => {
+    stopReminderAlarm();
+  }, minMs);
+}
+
 // Track active notification timers by tag
 // In browser, setTimeout returns a number; in Node.js it returns NodeJS.Timeout
 const notificationTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -162,10 +390,95 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
     });
 
     console.log('Service Worker registered:', registration);
+
+    // If notifications already granted, ensure push subscription exists
+    try {
+      if (hasNotificationPermission()) {
+        await subscribeToPush(registration);
+      }
+    } catch (e) {
+      console.warn('Failed to subscribe to push after SW registration:', e);
+    }
+
     return registration;
   } catch (error) {
     console.error('Service Worker registration failed:', error);
     return null;
+  }
+}
+
+// ----------------------
+// Web Push subscription management
+// ----------------------
+const VAPID_PUBLIC_KEY = (typeof process !== 'undefined' ? (process as any).env?.NEXT_PUBLIC_VAPID_PUBLIC_KEY : undefined) || (globalThis as any).NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+export async function subscribeToPush(registration?: ServiceWorkerRegistration) {
+  try {
+    if (!features.hasServiceWorker || !features.hasNotification) return null;
+    const reg = registration || (await navigator.serviceWorker.ready);
+    if (!reg.pushManager) return null;
+    if (!VAPID_PUBLIC_KEY) {
+      console.warn('Missing NEXT_PUBLIC_VAPID_PUBLIC_KEY; skipping push subscription');
+      return null;
+    }
+
+    // Check existing
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+
+    const body = {
+      endpoint: sub.endpoint,
+      keys: {
+        p256dh: (sub as any).toJSON().keys.p256dh,
+        auth: (sub as any).toJSON().keys.auth,
+      },
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+    };
+
+    await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    return sub;
+  } catch (e) {
+    console.warn('subscribeToPush error:', e);
+    return null;
+  }
+}
+
+export async function unsubscribeFromPush() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) return false;
+    await fetch('/api/push/unsubscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint: sub.endpoint }),
+    });
+    await sub.unsubscribe();
+    return true;
+  } catch (e) {
+    console.warn('unsubscribeFromPush error:', e);
+    return false;
   }
 }
 
@@ -374,10 +687,27 @@ export async function scheduleNotification(
       try {
         const registration = await navigator.serviceWorker.ready;
         if (registration && typeof registration.showNotification === 'function') {
-          registration.showNotification(title, {
-            ...notificationOptions,
-            requireInteraction: true,
-          });
+          // Enforce per-subscription daily limit for service worker notifications too
+          try {
+            const subId = (notificationOptions as any).data?.subscriptionId as string | undefined;
+            if (subId && !canShowDailyReminder(subId)) {
+              // Skip showing via SW if limit reached
+            } else {
+              registration.showNotification(title, {
+                ...notificationOptions,
+                requireInteraction: true,
+              });
+              if (subId) {
+                try { recordDailyReminderShown(subId); } catch {}
+              }
+            }
+          } catch {
+            // Fallback to showing
+            registration.showNotification(title, {
+              ...notificationOptions,
+              requireInteraction: true,
+            });
+          }
         }
       } catch (error) {
         console.warn('Error showing notification via service worker:', error);
@@ -401,6 +731,13 @@ export function showNotification(
     return null;
   }
 
+  // Enforce per-subscription, per-local-day limit
+  try {
+    const subId = (options as any).data?.subscriptionId as string | undefined;
+    if (subId && !canShowDailyReminder(subId)) {
+      return null;
+    }
+  } catch {}
   const defaultOptions: NotificationOptions = {
     icon: '/icon-192x192.png',
     badge: '/icon-192x192.png',
@@ -411,14 +748,39 @@ export function showNotification(
   try {
     const notification = new Notification(title, defaultOptions);
 
+    // Record show against daily limit if we have a subscriptionId
+    try {
+      const subId2 = (options as any).data?.subscriptionId as string | undefined;
+      if (subId2) {
+        recordDailyReminderShown(subId2);
+      }
+    } catch {}
+
+    // Start a longer alarm for high-priority (today) reminders when shown from page context
+    try {
+      const priority = (options as any).data?.priority as 'today' | 'tomorrow' | undefined;
+      if (priority === 'today') {
+        startReminderAlarm({ priority: 'today', minSeconds: 60 });
+      } else {
+        // Fallback: short chime
+        playReminderSound({ priority });
+      }
+    } catch {}
+
     // Handle notification click
     notification.onclick = (event) => {
       event.preventDefault();
-      if (options.data?.url) {
+      try { stopReminderAlarm(); } catch {}
+      if ( (options as any).data?.url) {
         window.focus();
-        window.location.href = options.data.url;
+        window.location.href = (options as any).data.url;
       }
       notification.close();
+    };
+
+    // Stop alarm when the notification is closed by any means
+    notification.onclose = () => {
+      try { stopReminderAlarm(); } catch {}
     };
 
     return notification;
@@ -447,6 +809,11 @@ export async function scheduleReminderNotifications(
   }
 
   for (const reminder of reminders) {
+    // Enforce per-subscription daily limit before scheduling/showing
+    if (!canShowDailyReminder(reminder.subscriptionId)) {
+      continue;
+    }
+
     const billingDate = typeof reminder.billingDate === 'string'
       ? new Date(reminder.billingDate)
       : reminder.billingDate;
@@ -480,6 +847,7 @@ export async function scheduleReminderNotifications(
       data: {
         url: `/subscriptions/${reminder.subscriptionId}`,
         subscriptionId: reminder.subscriptionId,
+        priority: reminder.reminderType,
       },
     };
 

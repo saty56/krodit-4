@@ -132,3 +132,39 @@ export const reportsExports = pgTable("reports_exports", {
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 });
+
+// Logs when reminder emails/notifications are sent to avoid duplicates
+export const reminderLogs = pgTable("reminder_logs", {
+  id: text("id").primaryKey().$defaultFn(() => nanoid()),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  subscriptionId: text("subscription_id")
+    .notNull()
+    .references(() => subscriptions.id, { onDelete: "cascade" }),
+  // 'today' | 'tomorrow'
+  reminderType: text("reminder_type").notNull(),
+  // The subscription's billing date (date part)
+  billingDate: timestamp("billing_date").notNull(),
+  // Channel this reminder was sent through: 'email' | 'push'
+  channel: text("channel").default("email").notNull(),
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+});
+
+// Stores Web Push subscriptions for users
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: text("id").primaryKey().$defaultFn(() => nanoid()),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userAgent: text("user_agent"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+});

@@ -1,179 +1,144 @@
-/**
- * Service Worker for Background Notifications
- * Handles push notifications and scheduled reminders
- */
-
-/**
- * Feature detection utilities
- * Note: Some features are checked at runtime since they may not be available at module load time
- */
-const features = {
-  hasClients: typeof self.clients !== 'undefined',
-  hasClientsMatchAll: typeof self.clients !== 'undefined' && 
-                      typeof self.clients.matchAll === 'function',
-  hasClientsOpenWindow: typeof self.clients !== 'undefined' && 
-                        typeof self.clients.openWindow === 'function',
-  hasPeriodicSync: 'periodicsync' in self,
-  hasNotificationActions: typeof Notification !== 'undefined' && 'actions' in Notification.prototype,
-};
-
-/**
- * Check if notifications are supported (runtime check)
- */
-function hasNotifications() {
-  return typeof self.registration !== 'undefined' && 
-         self.registration && 
-         typeof self.registration.showNotification === 'function';
-}
-
-// Log feature support in development (runtime check for notifications)
-if (typeof console !== 'undefined' && console.log) {
-  console.log('Service Worker features:', {
-    ...features,
-    hasNotifications: hasNotifications(),
-  });
-}
+/* Krodit Service Worker for background notifications */
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  if (features.hasClients && typeof self.clients.claim === 'function') {
-    event.waitUntil(self.clients.claim());
-  }
+  event.waitUntil(self.clients.claim());
 });
 
-/**
- * Handle push notifications
- */
-self.addEventListener('push', (event) => {
-  if (!hasNotifications()) {
-    console.warn('Notifications API not supported in service worker');
-    return;
-  }
+// ----------------------
+// Simple per-day counter in SW (IndexedDB)
+// ----------------------
+const DB_NAME = 'reminderNotifications';
+const STORE = 'swDaily';
 
-  try {
-    const data = event.data?.json() || {};
-    const title = data.title || 'Subscription Reminder';
-    const options = {
-      body: data.body || 'You have an upcoming billing date',
-      icon: data.icon || '/icon-192x192.png',
-      badge: '/icon-192x192.png',
-      tag: data.tag || 'subscription-reminder',
-      requireInteraction: data.requireInteraction || false,
-      data: data.data || {},
+function getLocalDayKey(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 3);
+    req.onupgradeneeded = (e) => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        db.createObjectStore(STORE);
+      }
     };
-
-    // Only add actions if supported
-    if (features.hasNotificationActions && data.actions) {
-      options.actions = data.actions;
-    } else if (features.hasNotificationActions) {
-      options.actions = [
-        {
-          action: 'view',
-          title: 'View Subscription',
-        },
-        {
-          action: 'dismiss',
-          title: 'Dismiss',
-        },
-      ];
-    }
-
-    event.waitUntil(
-      self.registration.showNotification(title, options).catch((error) => {
-        console.error('Error showing notification:', error);
-      })
-    );
-  } catch (error) {
-    console.error('Error handling push event:', error);
-  }
-});
-
-/**
- * Handle notification clicks
- */
-self.addEventListener('notificationclick', (event) => {
-  if (!event.notification) {
-    return;
-  }
-
-  event.notification.close();
-
-  const action = event.action;
-  const data = event.notification.data;
-
-  if (action === 'view' || !action) {
-    // Open the subscription page
-    const urlToOpen = data?.url || '/subscriptions';
-    
-    if (!features.hasClientsMatchAll) {
-      console.warn('Clients API not fully supported');
-      return;
-    }
-
-    event.waitUntil(
-      self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-        .then((clientList) => {
-          // If a window is already open, focus it
-          for (let i = 0; i < clientList.length; i++) {
-            const client = clientList[i];
-            if (client && 'focus' in client && typeof client.focus === 'function') {
-              try {
-                // Check if the URL matches (loose match - same origin)
-                const clientUrl = new URL(client.url);
-                const targetUrl = new URL(urlToOpen, self.location.origin);
-                if (clientUrl.origin === targetUrl.origin) {
-                  return client.focus();
-                }
-              } catch (e) {
-                // If URL parsing fails, try direct comparison
-                if (client.url.includes(urlToOpen)) {
-                  return client.focus();
-                }
-              }
-            }
-          }
-          
-          // Otherwise, open a new window
-          if (features.hasClientsOpenWindow) {
-            return self.clients.openWindow(urlToOpen);
-          } else {
-            console.warn('Cannot open window: clients.openWindow not supported');
-          }
-        })
-        .catch((error) => {
-          console.error('Error handling notification click:', error);
-        })
-    );
-  } else if (action === 'dismiss') {
-    // Just close the notification
-    event.notification.close();
-  }
-});
-
-/**
- * Periodic background sync for checking reminders
- */
-if (features.hasPeriodicSync) {
-  self.addEventListener('periodicsync', (event) => {
-    if (event.tag === 'check-reminders') {
-      event.waitUntil(checkReminders());
-    }
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
   });
 }
 
-/**
- * Check for reminders in the background
- */
-async function checkReminders() {
+async function loadCounts() {
   try {
-    // This would need to be called from the main app
-    // For now, we'll rely on scheduled notifications
-    return Promise.resolve();
-  } catch (error) {
-    console.error('Error checking reminders:', error);
+    const db = await openDb();
+    const tx = db.transaction([STORE], 'readonly');
+    const store = tx.objectStore(STORE);
+    const key = getLocalDayKey();
+    const getReq = store.get(key);
+    const value = await new Promise((resolve, reject) => {
+      getReq.onsuccess = () => resolve(getReq.result || {});
+      getReq.onerror = () => reject(getReq.error);
+    });
+    db.close?.();
+    return value || {};
+  } catch {
+    return {};
   }
 }
 
+async function saveCounts(counts) {
+  try {
+    const db = await openDb();
+    const tx = db.transaction([STORE], 'readwrite');
+    const store = tx.objectStore(STORE);
+    const key = getLocalDayKey();
+    store.put(counts, key);
+    db.close?.();
+  } catch {}
+}
+
+async function canShowDailyReminder(subscriptionId, limit = 2) {
+  if (!subscriptionId) return true;
+  const counts = await loadCounts();
+  const current = counts[subscriptionId] || 0;
+  return current < limit;
+}
+
+async function recordDailyReminderShown(subscriptionId) {
+  if (!subscriptionId) return;
+  const counts = await loadCounts();
+  counts[subscriptionId] = (counts[subscriptionId] || 0) + 1;
+  await saveCounts(counts);
+}
+
+// ----------------------
+// Push handler
+// ----------------------
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+  let payload = {};
+  try {
+    payload = event.data.json();
+  } catch {
+    try { payload = JSON.parse(event.data.text()); } catch {}
+  }
+
+  const title = payload.title || 'Reminder';
+  const body = payload.body || '';
+  const tag = payload.tag || undefined;
+  const data = payload.data || {};
+
+  const promise = (async () => {
+    const subId = data.subscriptionId;
+    // Enforce per-device daily cap
+    if (subId) {
+      const allowed = await canShowDailyReminder(subId, 2);
+      if (!allowed) return;
+    }
+
+    await self.registration.showNotification(title, {
+      body,
+      tag,
+      icon: '/icon-192x192.png',
+      badge: '/icon-192x192.png',
+      requireInteraction: true,
+      data,
+    });
+
+    if (subId) {
+      await recordDailyReminderShown(subId);
+    }
+  })();
+
+  event.waitUntil(promise);
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification?.data?.url;
+  const promise = (async () => {
+    if (url) {
+      const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of allClients) {
+        if ('focus' in client) {
+          client.focus();
+          client.postMessage?.({ type: 'REMINDER_CLICKED' });
+          break;
+        }
+      }
+      await self.clients.openWindow(url);
+    }
+  })();
+  event.waitUntil(promise);
+});
+
+self.addEventListener('notificationclose', (event) => {
+  // No audio to stop here (SW cannot play audio); page code handles stopping when visible
+});
