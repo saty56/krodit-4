@@ -28,6 +28,7 @@ export default function Page() {
 
   // Check if we're in an OAuth callback
   useEffect(() => {
+    if (!searchParams) return;
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     if (code || state) {

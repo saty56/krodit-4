@@ -125,12 +125,13 @@ export const sendBillingReminders = inngest.createFunction(
       }
 
       for (const r of items) {
+        if (!r.billingDate) continue;
         const already = await step.run(`check-log-${r.subscriptionId}-${r.reminderType}`, async () =>
           hasReminderBeenSent({
             subscriptionId: r.subscriptionId as string,
             userId: r.userId as string,
             reminderType: r.reminderType,
-            billingDate: new Date(r.billingDate as Date),
+            billingDate: new Date(r.billingDate as unknown as string),
             channel: 'push',
           })
         );
@@ -179,7 +180,7 @@ export const sendBillingReminders = inngest.createFunction(
           pushSent++;
           // Log idempotency for push channel
           await step.run(`log-${r.subscriptionId}-${r.reminderType}`, async () => {
-            const dateOnly = new Date(r.billingDate as Date);
+            const dateOnly = new Date(r.billingDate as unknown as string);
             dateOnly.setHours(0, 0, 0, 0);
             await db.insert(reminderLogs).values({
               userId: r.userId as string,
@@ -225,7 +226,7 @@ export const updatePastBillingDates = inngest.createFunction(
     for (const sub of pastDueSubs) {
       await step.run(`advance-${sub.id}`, async () => {
         const cycle = (sub as any).billingCycle as string | null;
-        const original = new Date(sub.nextBillingDate as Date);
+        const original = new Date(sub.nextBillingDate as unknown as string);
         let next = new Date(original);
 
         // Cap iterations to avoid infinite loop on corrupt data
