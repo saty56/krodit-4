@@ -22,6 +22,7 @@ export default function SignInPage() {
   const [msgType, setMsgType] = useState<"error" | "success" | "">("");
   const [isOAuthCallback, setIsOAuthCallback] = useState(false);
   const [isSocialLoading, setIsSocialLoading] = useState(false);
+  const [socialProvider, setSocialProvider] = useState<string | null>(null);
 
   // Check if we're in an OAuth callback
   useEffect(() => {
@@ -163,6 +164,7 @@ export default function SignInPage() {
                   onClick={(e) => {
                     e.preventDefault();
                     setIsSocialLoading(true);
+                    setSocialProvider("google");
                     authClient.signIn.social({ provider: "google" });
                   }}
                 >
@@ -174,6 +176,7 @@ export default function SignInPage() {
                   onClick={(e) => {
                     e.preventDefault();
                     setIsSocialLoading(true);
+                    setSocialProvider("github");
                     authClient.signIn.social({ provider: "github" });
                   }}
                 >
@@ -182,7 +185,13 @@ export default function SignInPage() {
               </div>
               {/* Show loading overlay when social button is clicked */}
               {isSocialLoading && (
-                <AuthLoadingOverlay message="Redirecting to provider..." />
+                <AuthLoadingOverlay message={
+                  socialProvider === "google"
+                    ? "Opening Google..."
+                    : socialProvider === "github"
+                    ? "Opening GitHub..."
+                    : "Redirecting to provider..."
+                } />
               )}
               <div className="card-footer">
                 <span>New here?</span>

@@ -17,16 +17,15 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: [
-      { url: "/favicon.ico?v=4" },
-      { url: "/favicon-16x16.png?v=4", sizes: "16x16", type: "image/png" },
-      { url: "/favicon-32x32.png?v=4", sizes: "32x32", type: "image/png" },
-      { url: "/file.svg", type: "image/svg+xml", sizes: "any" }
+      { url: "/log.png", type: "image/png", sizes: "32x32" },
+      { url: "/log.png", type: "image/png", sizes: "16x16" },
+      { url: "/log.png", type: "image/png", sizes: "48x48" },
     ],
     shortcut: [
-      { url: "/favicon-32x32.png?v=4", type: "image/png" }
+      { url: "/log.png", type: "image/png" },
     ],
     apple: [
-      { url: "/file%20(1).png?v=4", type: "image/png" }
+      { url: "/log.png", type: "image/png", sizes: "180x180" },
     ],
   },
 };
