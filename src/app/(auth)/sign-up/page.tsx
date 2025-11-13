@@ -217,8 +217,8 @@ export default function Page() {
                     authClient.signIn.social({ provider: "google" });
                   }}
                 >
-                  <FaGoogle />                
-                  </button>
+                  <FaGoogle />
+                </button>
                 <button
                   type="button" 
                   disabled={isSocialLoading}
@@ -234,13 +234,15 @@ export default function Page() {
               </div>
               {/* Show loading overlay when social button is clicked */}
               {isSocialLoading && (
-                <AuthLoadingOverlay message={
-                  socialProvider === "google"
-                    ? "Opening Google..."
-                    : socialProvider === "github"
-                    ? "Opening GitHub..."
-                    : "Redirecting to provider..."
-                } />
+                <AuthLoadingOverlay
+                  message={
+                    socialProvider === "google"
+                      ? "Sign in with Google..."
+                      : socialProvider === "github"
+                      ? "Sign in with GitHub..."
+                      : "Sign you up..."
+                  }
+                />
               )}
               <div className="card-footer">
                 <span>Already have an account?</span>

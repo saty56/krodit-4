@@ -181,17 +181,19 @@ export default function SignInPage() {
                   }}
                 >
                   <FaGithub />
-                  </button>
+                </button>
               </div>
               {/* Show loading overlay when social button is clicked */}
               {isSocialLoading && (
-                <AuthLoadingOverlay message={
-                  socialProvider === "google"
-                    ? "Opening Google..."
-                    : socialProvider === "github"
-                    ? "Opening GitHub..."
-                    : "Redirecting to provider..."
-                } />
+                <AuthLoadingOverlay
+                  message={
+                    socialProvider === "google"
+                      ? "Sign in with Google..."
+                      : socialProvider === "github"
+                      ? "Sign in with GitHub..."
+                      : "Sign you in..."
+                  }
+                />
               )}
               <div className="card-footer">
                 <span>New here?</span>
