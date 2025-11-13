@@ -14,7 +14,7 @@ interface Props {
  * Wrapper component that redirects authenticated users away from auth pages
  * Shows loading states to prevent page blink during auth checks
  */
-export default function RedirectIfAuth({ children, redirectTo = "/" }: Props) {
+export default function RedirectIfAuth({ children, redirectTo = "/dashboard" }: Props) {
   const router = useRouter();
   const { data, isPending } = authClient.useSession();
 

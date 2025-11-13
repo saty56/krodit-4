@@ -92,17 +92,17 @@ export default function LandingPage() {
         <div className="h-[620px] w-[1200px] rounded-full bg-gradient-to-br from-primary/30 via-primary/5 to-transparent blur-3xl" />
       </div>
 
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-8 lg:px-12">
-        <Link href="/" className="flex items-center gap-0.9 text-2xl font-bold">
+      <header className="flex items-center justify-between w-full max-w-6xl pl-0 sm:px-6 lg:px-12 py-4 sm:py-8 mx-auto">
+        <Link href="/" className="flex items-center gap-0 text-lg sm:text-2xl font-bold">
           <Image
             src="/file.svg"
             alt="Krodit Logo"
             width={72}
             height={72}
-            className="h-20 w-20"
+            className="h-12 w-12 sm:h-16 sm:w-16 lg:h-20 lg:w-20"
             priority
           />
-          <span>Krodit</span>
+          <span className="-ml-1 sm:-ml-2">Krodit</span>
         </Link>
 
         <nav className="hidden items-center gap-8 text-sm font-medium text-muted-foreground md:flex">
@@ -120,14 +120,15 @@ export default function LandingPage() {
           </Link>
         </nav>
 
-        <div className="flex items-center gap-3">
-          <Link href="/sign-in" className="text-sm font-medium text-muted-foreground hover:text-foreground">
+        <div className="flex items-center gap-1.5 sm:gap-3">
+          <Link href="/sign-in" className="text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground">
             Sign in
           </Link>
-          <Button asChild>
-            <Link href="/sign-up" className="flex items-center gap-2">
-              Start for free
-              <ArrowRight className="size-4" />
+          <Button className="h-8 px-3 text-xs sm:h-10 sm:px-4 sm:text-sm" asChild>
+            <Link href="/sign-up" className="flex items-center gap-1 sm:gap-2">
+              <span className="hidden sm:inline">Start for free</span>
+              <span className="sm:hidden">Start for free</span>
+              <ArrowRight className="size-3 sm:size-4" />
             </Link>
           </Button>
         </div>
@@ -451,7 +452,7 @@ export default function LandingPage() {
 
       <footer className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 pb-12 pt-6 text-sm text-muted-foreground lg:px-12">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-0.5 text-base font-semibold text-foreground">
+          <div className="flex items-center gap-0 text-base font-semibold text-foreground">
             <Image
               src="/file.svg"
               alt="Krodit Logo"

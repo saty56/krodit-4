@@ -69,7 +69,7 @@ export default function Page() {
       setMsgType("success");
       reset();
       setTimeout(() => {
-        router.push("/");
+        router.push("/dashboard");
       }, 1200);
     } catch (err: any) {
       let msg = err?.message || String(err);
@@ -217,8 +217,8 @@ export default function Page() {
                     authClient.signIn.social({ provider: "google" });
                   }}
                 >
-                  <FaGoogle />
-                </button>
+                  <FaGoogle />                
+                  </button>
                 <button
                   type="button" 
                   disabled={isSocialLoading}
@@ -236,9 +236,9 @@ export default function Page() {
               {isSocialLoading && (
                 <AuthLoadingOverlay
                   message={
-                    socialProvider === "google"
+                  socialProvider === "google"
                       ? "Sign in with Google..."
-                      : socialProvider === "github"
+                    : socialProvider === "github"
                       ? "Sign in with GitHub..."
                       : "Sign you up..."
                   }

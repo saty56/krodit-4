@@ -61,7 +61,7 @@ export default function SignInPage() {
       setMsgType("success");
       reset();
       setTimeout(() => {
-        router.push("/");
+        router.push("/dashboard");
       }, 1200);
     } catch (err: any) {
       let msg = err?.message || String(err);
@@ -181,15 +181,15 @@ export default function SignInPage() {
                   }}
                 >
                   <FaGithub />
-                </button>
+                  </button>
               </div>
               {/* Show loading overlay when social button is clicked */}
               {isSocialLoading && (
                 <AuthLoadingOverlay
                   message={
-                    socialProvider === "google"
+                  socialProvider === "google"
                       ? "Sign in with Google..."
-                      : socialProvider === "github"
+                    : socialProvider === "github"
                       ? "Sign in with GitHub..."
                       : "Sign you in..."
                   }
