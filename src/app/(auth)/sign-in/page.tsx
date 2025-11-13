@@ -23,16 +23,34 @@ export default function SignInPage() {
   const [isOAuthCallback, setIsOAuthCallback] = useState(false);
   const [isSocialLoading, setIsSocialLoading] = useState(false);
   const [socialProvider, setSocialProvider] = useState<string | null>(null);
+  const { data: session, isPending: isSessionPending } = authClient.useSession();
 
-  // Check if we're in an OAuth callback
+  // Check if we're in an OAuth callback and handle redirect
   useEffect(() => {
     if (!searchParams) return;
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     if (code || state) {
       setIsOAuthCallback(true);
+      // Wait for session to be established after OAuth callback
+      const checkSession = setInterval(() => {
+        if (!isSessionPending && session?.user) {
+          clearInterval(checkSession);
+          router.replace("/dashboard");
+        }
+      }, 500);
+      
+      // Cleanup after 10 seconds if session doesn't establish
+      const timeout = setTimeout(() => {
+        clearInterval(checkSession);
+      }, 10000);
+
+      return () => {
+        clearInterval(checkSession);
+        clearTimeout(timeout);
+      };
     }
-  }, [searchParams]);
+  }, [searchParams, session, isSessionPending, router]);
 
   const onSubmit = async (data: SignInFormFields) => {
     setStatusMsg("");
@@ -61,7 +79,7 @@ export default function SignInPage() {
       setMsgType("success");
       reset();
       setTimeout(() => {
-        router.push("/dashboard");
+        router.replace("/dashboard");
       }, 1200);
     } catch (err: any) {
       let msg = err?.message || String(err);
@@ -165,7 +183,10 @@ export default function SignInPage() {
                     e.preventDefault();
                     setIsSocialLoading(true);
                     setSocialProvider("google");
-                    authClient.signIn.social({ provider: "google" });
+                    authClient.signIn.social({ 
+                      provider: "google",
+                      callbackURL: "/dashboard"
+                    });
                   }}
                 >
                   <FaGoogle />
@@ -177,7 +198,10 @@ export default function SignInPage() {
                     e.preventDefault();
                     setIsSocialLoading(true);
                     setSocialProvider("github");
-                    authClient.signIn.social({ provider: "github" });
+                    authClient.signIn.social({ 
+                      provider: "github",
+                      callbackURL: "/dashboard"
+                    });
                   }}
                 >
                   <FaGithub />

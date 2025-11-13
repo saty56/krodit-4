@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   ShieldCheck,
@@ -14,6 +16,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { authClient } from "@/lib/auth-client";
+import { AuthLoadingOverlay } from "@/components/auth-loading-overlay";
 
 const socialProof = [
   "apple.com",
@@ -86,6 +90,26 @@ const planHighlights = [
 ];
 
 export default function LandingPage() {
+  const router = useRouter();
+  const { data, isPending } = authClient.useSession();
+
+  // Redirect authenticated users to the dashboard
+  useEffect(() => {
+    if (!isPending && data?.user) {
+      router.replace("/dashboard");
+    }
+  }, [isPending, data?.user, router]);
+
+  // Show loading while checking session
+  if (isPending) {
+    return <AuthLoadingOverlay message="Loading..." fullScreen />;
+  }
+
+  // Show redirecting message if user is authenticated
+  if (data?.user) {
+    return <AuthLoadingOverlay message="Redirecting..." fullScreen />;
+  }
+
   return (
     <div className="relative isolate min-h-screen overflow-hidden bg-background text-foreground">
       <div className="absolute inset-x-0 top-[-120px] -z-10 flex justify-center overflow-hidden">
